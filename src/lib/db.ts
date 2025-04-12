@@ -1,4 +1,3 @@
-
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 
 // Define the database schema
@@ -279,6 +278,102 @@ export const db = {
       
       goal.lastCompletedDate = today;
       await this.updateGoal(goal);
+    }
+  },
+
+  async createDefaultData(): Promise<void> {
+    // Check if data already exists
+    const existingGoals = await this.getGoals();
+    if (existingGoals.length > 0) return;
+
+    // Create some initial goals
+    const initialGoals: Goal[] = [
+      {
+        id: 'fitness-goal',
+        title: 'Get Fit',
+        createdAt: Date.now() - 30 * 24 * 60 * 60 * 1000, // 30 days ago
+        taskIds: [],
+        order: 0,
+        streakCounter: 5,
+        lastCompletedDate: new Date().toISOString().split('T')[0],
+        color: '#4CAF50'
+      },
+      {
+        id: 'work-goal',
+        title: 'Career Growth',
+        createdAt: Date.now() - 45 * 24 * 60 * 60 * 1000, // 45 days ago
+        taskIds: [],
+        order: 1,
+        streakCounter: 3,
+        lastCompletedDate: new Date().toISOString().split('T')[0],
+        color: '#2196F3'
+      },
+      {
+        id: 'personal-dev',
+        title: 'Personal Development',
+        createdAt: Date.now() - 60 * 24 * 60 * 60 * 1000, // 60 days ago
+        taskIds: [],
+        order: 2,
+        streakCounter: 2,
+        lastCompletedDate: null,
+        color: '#9C27B0'
+      }
+    ];
+
+    // Add goals
+    for (const goal of initialGoals) {
+      await this.addGoal(goal);
+    }
+
+    // Create some initial tasks
+    const initialTasks: Task[] = [
+      {
+        id: 'task-1',
+        title: 'Complete 30-minute workout',
+        dueDate: new Date().toISOString().split('T')[0],
+        suggestedDueDate: new Date().toISOString().split('T')[0],
+        createdAt: Date.now() - 5 * 24 * 60 * 60 * 1000,
+        goalId: 'fitness-goal',
+        tags: ['exercise', 'health'],
+        completed: true,
+        priority: 'high',
+        isArchived: false,
+        repeatPattern: { type: 'daily', interval: 1 },
+        completionTimestamp: Date.now() - 4 * 24 * 60 * 60 * 1000
+      },
+      {
+        id: 'task-2',
+        title: 'Update resume',
+        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        suggestedDueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        createdAt: Date.now() - 10 * 24 * 60 * 60 * 1000,
+        goalId: 'work-goal',
+        tags: ['career', 'job'],
+        completed: false,
+        priority: 'medium',
+        isArchived: false,
+        repeatPattern: null,
+        completionTimestamp: null
+      },
+      {
+        id: 'task-3',
+        title: 'Read a personal development book',
+        dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        suggestedDueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        createdAt: Date.now() - 15 * 24 * 60 * 60 * 1000,
+        goalId: 'personal-dev',
+        tags: ['reading', 'learning'],
+        completed: false,
+        priority: 'low',
+        isArchived: false,
+        repeatPattern: null,
+        completionTimestamp: null
+      }
+    ];
+
+    // Add tasks
+    for (const task of initialTasks) {
+      await this.addTask(task);
     }
   }
 };
