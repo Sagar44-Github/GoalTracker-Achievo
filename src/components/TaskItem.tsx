@@ -28,7 +28,8 @@ import {
   Dialog, 
   DialogContent, 
   DialogHeader, 
-  DialogTitle 
+  DialogTitle,
+  DialogDescription
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -195,6 +196,7 @@ export function TaskItem({ task }: TaskItemProps) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Task</DialogTitle>
+            <DialogDescription>Update the task details.</DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4 mt-4">
@@ -240,14 +242,14 @@ export function TaskItem({ task }: TaskItemProps) {
             <div className="space-y-2">
               <Label htmlFor="editGoalId">Goal</Label>
               <Select
-                value={editedTask.goalId || ''}
-                onValueChange={(value) => setEditedTask({ ...editedTask, goalId: value || null })}
+                value={editedTask.goalId || 'none'}
+                onValueChange={(value) => setEditedTask({ ...editedTask, goalId: value === 'none' ? null : value })}
               >
                 <SelectTrigger id="editGoalId">
                   <SelectValue placeholder="Select a goal" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No Goal</SelectItem>
+                  <SelectItem value="none">No Goal</SelectItem>
                   {goals.map((goal) => (
                     <SelectItem key={goal.id} value={goal.id}>
                       {goal.title}

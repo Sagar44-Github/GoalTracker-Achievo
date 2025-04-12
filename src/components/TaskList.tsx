@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { TaskItem } from './TaskItem';
 import { CommandInput } from './CommandInput';
 import { Plus, Mic } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { 
@@ -19,6 +19,40 @@ import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Task } from '@/lib/db';
 import { suggestTags, suggestDueDate, parseDateExpression } from '@/lib/taskUtils';
+
+// Define the SpeechRecognition type to avoid TypeScript errors
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start: () => void;
+  stop: () => void;
+  onstart: (event: Event) => void;
+  onresult: (event: SpeechRecognitionEvent) => void;
+  onerror: (event: SpeechRecognitionErrorEvent) => void;
+  onend: (event: Event) => void;
+}
+
+interface SpeechRecognitionEvent {
+  results: {
+    [index: number]: {
+      [index: number]: {
+        transcript: string;
+      };
+    };
+  };
+}
+
+interface SpeechRecognitionErrorEvent extends Event {
+  error: string;
+}
+
+declare global {
+  interface Window {
+    SpeechRecognition?: new () => SpeechRecognition;
+    webkitSpeechRecognition?: new () => SpeechRecognition;
+  }
+}
 
 export function TaskList() {
   const { 
@@ -42,9 +76,10 @@ export function TaskList() {
   
   // Speech recognition setup
   const startListening = () => {
-    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-      const SpeechRecognition = window.webkitSpeechRecognition || window.SpeechRecognition;
-      const recognition = new SpeechRecognition();
+    const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
+    
+    if (SpeechRecognitionAPI) {
+      const recognition = new SpeechRecognitionAPI();
       
       recognition.continuous = false;
       recognition.interimResults = false;
@@ -228,6 +263,7 @@ export function TaskList() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add New Task</DialogTitle>
+            <DialogDescription>Create a new task with details.</DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4 mt-4">
@@ -274,14 +310,14 @@ export function TaskList() {
             <div className="space-y-2">
               <Label htmlFor="goalId">Goal</Label>
               <Select
-                value={newTask.goalId || ''}
-                onValueChange={(value) => setNewTask({ ...newTask, goalId: value || null })}
+                value={newTask.goalId || 'none'}
+                onValueChange={(value) => setNewTask({ ...newTask, goalId: value === 'none' ? null : value })}
               >
                 <SelectTrigger id="goalId">
                   <SelectValue placeholder="Select a goal" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No Goal</SelectItem>
+                  <SelectItem value="none">No Goal</SelectItem>
                   {goals.map((goal) => (
                     <SelectItem key={goal.id} value={goal.id}>
                       {goal.title}
