@@ -12,6 +12,7 @@ import {
   Settings,
   Sun,
   Moon,
+  Trophy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +40,8 @@ export function Sidebar() {
     filterTasks,
     isDarkMode,
     toggleDarkMode,
+    showGamificationView,
+    toggleGamificationView,
   } = useApp();
 
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -89,11 +92,14 @@ export function Sidebar() {
           variant="ghost"
           className={cn(
             "w-full justify-start mb-1",
-            !currentGoalId && "bg-sidebar-accent text-sidebar-accent-foreground"
+            !currentGoalId &&
+              !showGamificationView &&
+              "bg-sidebar-accent text-sidebar-accent-foreground"
           )}
           onClick={() => {
             setCurrentGoalId(null);
             filterTasks("all");
+            toggleGamificationView(false);
           }}
         >
           <ListTodo size={18} className="mr-2" />
@@ -103,7 +109,10 @@ export function Sidebar() {
         <Button
           variant="ghost"
           className="w-full justify-start mb-1"
-          onClick={() => filterTasks("today")}
+          onClick={() => {
+            filterTasks("today");
+            toggleGamificationView(false);
+          }}
         >
           <CalendarDays size={18} className="mr-2" />
           {!isCollapsed && <span>Today</span>}
@@ -112,10 +121,26 @@ export function Sidebar() {
         <Button
           variant="ghost"
           className="w-full justify-start mb-1"
-          onClick={() => filterTasks("completed")}
+          onClick={() => {
+            filterTasks("completed");
+            toggleGamificationView(false);
+          }}
         >
           <CheckCircle size={18} className="mr-2" />
           {!isCollapsed && <span>Completed</span>}
+        </Button>
+
+        <Button
+          variant="ghost"
+          className={cn(
+            "w-full justify-start mb-1",
+            showGamificationView &&
+              "bg-sidebar-accent text-sidebar-accent-foreground"
+          )}
+          onClick={() => toggleGamificationView(true)}
+        >
+          <Trophy size={18} className="mr-2" />
+          {!isCollapsed && <span>Achievements</span>}
         </Button>
       </div>
 

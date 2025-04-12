@@ -1,23 +1,27 @@
-import { openDB, DBSchema, IDBPDatabase } from 'idb';
+import { openDB, DBSchema, IDBPDatabase } from "idb";
 
 // Define the database schema
 interface TaskStore {
   key: string;
   value: Task;
-  indexes: { 'by-goalId': string; 'by-dueDate': string; 'by-completed': boolean };
+  indexes: {
+    "by-goalId": string;
+    "by-dueDate": string;
+    "by-completed": boolean;
+  };
 }
 
 export interface AchievoDB extends DBSchema {
   goals: {
     key: string;
     value: Goal;
-    indexes: { 'by-order': number };
+    indexes: { "by-order": number };
   };
   tasks: TaskStore;
   history: {
     key: string;
     value: HistoryEntry;
-    indexes: { 'by-timestamp': number };
+    indexes: { "by-timestamp": number };
   };
 }
 
@@ -33,6 +37,8 @@ export interface Goal {
   color?: string;
   level?: number;
   xp?: number;
+  prestigeLevel?: number; // Number of times the goal has prestiged
+  badges?: string[]; // IDs of earned badges
 }
 
 export interface Task {
@@ -44,7 +50,7 @@ export interface Task {
   goalId: string | null;
   tags: string[];
   completed: boolean;
-  priority: 'low' | 'medium' | 'high';
+  priority: "low" | "medium" | "high";
   isArchived: boolean;
   repeatPattern: RepeatPattern | null;
   completionTimestamp: number | null;
@@ -54,16 +60,16 @@ export interface Task {
 }
 
 export interface RepeatPattern {
-  type: 'daily' | 'weekly' | 'monthly' | 'custom';
+  type: "daily" | "weekly" | "monthly" | "custom";
   interval: number;
   endDate?: string;
 }
 
 export interface HistoryEntry {
   id: string;
-  type: 'add' | 'complete' | 'edit' | 'delete' | 'archive';
+  type: "add" | "complete" | "edit" | "delete" | "archive";
   entityId: string;
-  entityType: 'task' | 'goal';
+  entityType: "task" | "goal";
   timestamp: number;
   details: any;
 }
@@ -74,24 +80,26 @@ let dbPromise: Promise<IDBPDatabase<AchievoDB>> | null = null;
 // Initialize the database
 const initDB = async () => {
   if (!dbPromise) {
-    dbPromise = openDB<AchievoDB>('achievo-db', 1, {
+    dbPromise = openDB<AchievoDB>("achievo-db", 1, {
       upgrade(db) {
         // Create stores if they don't exist
-        if (!db.objectStoreNames.contains('goals')) {
-          const goalStore = db.createObjectStore('goals', { keyPath: 'id' });
-          goalStore.createIndex('by-order', 'order');
+        if (!db.objectStoreNames.contains("goals")) {
+          const goalStore = db.createObjectStore("goals", { keyPath: "id" });
+          goalStore.createIndex("by-order", "order");
         }
 
-        if (!db.objectStoreNames.contains('tasks')) {
-          const taskStore = db.createObjectStore('tasks', { keyPath: 'id' });
-          taskStore.createIndex('by-goalId', 'goalId');
-          taskStore.createIndex('by-dueDate', 'dueDate');
-          taskStore.createIndex('by-completed', 'completed');
+        if (!db.objectStoreNames.contains("tasks")) {
+          const taskStore = db.createObjectStore("tasks", { keyPath: "id" });
+          taskStore.createIndex("by-goalId", "goalId");
+          taskStore.createIndex("by-dueDate", "dueDate");
+          taskStore.createIndex("by-completed", "completed");
         }
 
-        if (!db.objectStoreNames.contains('history')) {
-          const historyStore = db.createObjectStore('history', { keyPath: 'id' });
-          historyStore.createIndex('by-timestamp', 'timestamp');
+        if (!db.objectStoreNames.contains("history")) {
+          const historyStore = db.createObjectStore("history", {
+            keyPath: "id",
+          });
+          historyStore.createIndex("by-timestamp", "timestamp");
         }
       },
     });
@@ -104,50 +112,50 @@ export const db = {
   // Goal operations
   async getGoals(): Promise<Goal[]> {
     const db = await initDB();
-    return db.getAllFromIndex('goals', 'by-order');
+    return db.getAllFromIndex("goals", "by-order");
   },
 
   async getGoal(id: string): Promise<Goal | undefined> {
     const db = await initDB();
-    return db.get('goals', id);
+    return db.get("goals", id);
   },
 
   async addGoal(goal: Goal): Promise<string> {
     const db = await initDB();
-    await db.add('goals', goal);
+    await db.add("goals", goal);
     return goal.id;
   },
 
   async updateGoal(goal: Goal): Promise<string> {
     const db = await initDB();
-    await db.put('goals', goal);
+    await db.put("goals", goal);
     return goal.id;
   },
 
   async deleteGoal(id: string): Promise<void> {
     const db = await initDB();
-    await db.delete('goals', id);
+    await db.delete("goals", id);
   },
 
   // Task operations
   async getTasks(): Promise<Task[]> {
     const db = await initDB();
-    return db.getAll('tasks');
+    return db.getAll("tasks");
   },
 
   async getTasksByGoal(goalId: string): Promise<Task[]> {
     const db = await initDB();
-    return db.getAllFromIndex('tasks', 'by-goalId', goalId);
+    return db.getAllFromIndex("tasks", "by-goalId", goalId);
   },
 
   async getTask(id: string): Promise<Task | undefined> {
     const db = await initDB();
-    return db.get('tasks', id);
+    return db.get("tasks", id);
   },
 
   async addTask(task: Task): Promise<string> {
     const db = await initDB();
-    await db.add('tasks', task);
+    await db.add("tasks", task);
 
     // Update goal's taskIds if the task is assigned to a goal
     if (task.goalId) {
@@ -161,11 +169,11 @@ export const db = {
     // Add to history
     await this.addHistoryEntry({
       id: crypto.randomUUID(),
-      type: 'add',
+      type: "add",
       entityId: task.id,
-      entityType: 'task',
+      entityType: "task",
       timestamp: Date.now(),
-      details: { title: task.title }
+      details: { title: task.title },
     });
 
     return task.id;
@@ -173,24 +181,24 @@ export const db = {
 
   async updateTask(task: Task): Promise<string> {
     const db = await initDB();
-    
+
     // Get the old task to compare changes
     const oldTask = await this.getTask(task.id);
-    
+
     // Update the task
-    await db.put('tasks', task);
-    
+    await db.put("tasks", task);
+
     // If goal assignment changed, update both goals
     if (oldTask && oldTask.goalId !== task.goalId) {
       // Remove from old goal
       if (oldTask.goalId) {
         const oldGoal = await this.getGoal(oldTask.goalId);
         if (oldGoal) {
-          oldGoal.taskIds = oldGoal.taskIds.filter(id => id !== task.id);
+          oldGoal.taskIds = oldGoal.taskIds.filter((id) => id !== task.id);
           await this.updateGoal(oldGoal);
         }
       }
-      
+
       // Add to new goal
       if (task.goalId) {
         const newGoal = await this.getGoal(task.goalId);
@@ -200,64 +208,64 @@ export const db = {
         }
       }
     }
-    
+
     // Add to history if task was completed
     if (oldTask && !oldTask.completed && task.completed) {
       await this.addHistoryEntry({
         id: crypto.randomUUID(),
-        type: 'complete',
+        type: "complete",
         entityId: task.id,
-        entityType: 'task',
+        entityType: "task",
         timestamp: Date.now(),
-        details: { title: task.title }
+        details: { title: task.title },
       });
-      
+
       // Update goal streak if task was completed
       if (task.goalId) {
         await this.updateGoalStreakOnTaskCompletion(task.goalId);
       }
     }
-    
+
     return task.id;
   },
 
   async deleteTask(id: string): Promise<void> {
     const db = await initDB();
     const task = await this.getTask(id);
-    
+
     if (task) {
       // Remove task from goal's taskIds
       if (task.goalId) {
         const goal = await this.getGoal(task.goalId);
         if (goal) {
-          goal.taskIds = goal.taskIds.filter(taskId => taskId !== id);
+          goal.taskIds = goal.taskIds.filter((taskId) => taskId !== id);
           await this.updateGoal(goal);
         }
       }
-      
+
       // Add to history
       await this.addHistoryEntry({
         id: crypto.randomUUID(),
-        type: 'delete',
+        type: "delete",
         entityId: id,
-        entityType: 'task',
+        entityType: "task",
         timestamp: Date.now(),
-        details: { title: task.title }
+        details: { title: task.title },
       });
-      
-      await db.delete('tasks', id);
+
+      await db.delete("tasks", id);
     }
   },
 
   // History operations
   async getHistory(limit: number = 50): Promise<HistoryEntry[]> {
     const db = await initDB();
-    return db.getAllFromIndex('history', 'by-timestamp', null, limit);
+    return db.getAllFromIndex("history", "by-timestamp", null, limit);
   },
 
   async addHistoryEntry(entry: HistoryEntry): Promise<string> {
     const db = await initDB();
-    await db.add('history', entry);
+    await db.add("history", entry);
     return entry.id;
   },
 
@@ -265,27 +273,50 @@ export const db = {
   async updateGoalStreakOnTaskCompletion(goalId: string): Promise<void> {
     const goal = await this.getGoal(goalId);
     if (!goal) return;
-    
-    const today = new Date().toISOString().split('T')[0];
-    
+
+    const today = new Date().toISOString().split("T")[0];
+
     // If this is the first task completed today
     if (goal.lastCompletedDate !== today) {
-      const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-      
+      const yesterday = new Date(Date.now() - 86400000)
+        .toISOString()
+        .split("T")[0];
+
       // Check if the last completed date was yesterday to maintain streak
       if (goal.lastCompletedDate === yesterday) {
         goal.streakCounter++;
-      } else if (goal.lastCompletedDate !== null && goal.lastCompletedDate !== today) {
+      } else if (
+        goal.lastCompletedDate !== null &&
+        goal.lastCompletedDate !== today
+      ) {
         // Reset streak if more than a day was missed
         goal.streakCounter = 1;
       } else if (goal.lastCompletedDate === null) {
         // Start streak if this is the first completion ever
         goal.streakCounter = 1;
       }
-      
+
       goal.lastCompletedDate = today;
       await this.updateGoal(goal);
     }
+  },
+
+  // History related methods
+  async getHistoryEntriesByEntityId(entityId: string): Promise<HistoryEntry[]> {
+    const db = await initDB();
+    const allEntries = await db.getAll("history");
+    return allEntries.filter((entry) => entry.entityId === entityId);
+  },
+
+  async getTasksByTitle(title: string): Promise<Task[]> {
+    const db = await initDB();
+    const allTasks = await db.getAll("tasks");
+    // Case-insensitive search for tasks with similar titles
+    return allTasks.filter(
+      (task) =>
+        task.title.toLowerCase().includes(title.toLowerCase()) ||
+        title.toLowerCase().includes(task.title.toLowerCase())
+    );
   },
 
   async createDefaultData(): Promise<void> {
@@ -296,41 +327,41 @@ export const db = {
     // Create some initial goals
     const initialGoals: Goal[] = [
       {
-        id: 'fitness-goal',
-        title: 'Get Fit',
+        id: "fitness-goal",
+        title: "Get Fit",
         createdAt: Date.now() - 30 * 24 * 60 * 60 * 1000, // 30 days ago
         taskIds: [],
         order: 0,
         streakCounter: 5,
-        lastCompletedDate: new Date().toISOString().split('T')[0],
-        color: '#4CAF50',
+        lastCompletedDate: new Date().toISOString().split("T")[0],
+        color: "#4CAF50",
         level: 1,
-        xp: 100
+        xp: 100,
       },
       {
-        id: 'work-goal',
-        title: 'Career Growth',
+        id: "work-goal",
+        title: "Career Growth",
         createdAt: Date.now() - 45 * 24 * 60 * 60 * 1000, // 45 days ago
         taskIds: [],
         order: 1,
         streakCounter: 3,
-        lastCompletedDate: new Date().toISOString().split('T')[0],
-        color: '#2196F3',
+        lastCompletedDate: new Date().toISOString().split("T")[0],
+        color: "#2196F3",
         level: 1,
-        xp: 75
+        xp: 75,
       },
       {
-        id: 'personal-dev',
-        title: 'Personal Development',
+        id: "personal-dev",
+        title: "Personal Development",
         createdAt: Date.now() - 60 * 24 * 60 * 60 * 1000, // 60 days ago
         taskIds: [],
         order: 2,
         streakCounter: 2,
         lastCompletedDate: null,
-        color: '#9C27B0',
+        color: "#9C27B0",
         level: 1,
-        xp: 50
-      }
+        xp: 50,
+      },
     ];
 
     // Add goals
@@ -341,72 +372,198 @@ export const db = {
     // Create some initial tasks
     const initialTasks: Task[] = [
       {
-        id: 'task-1',
-        title: 'Complete 30-minute workout',
-        dueDate: new Date().toISOString().split('T')[0],
-        suggestedDueDate: new Date().toISOString().split('T')[0],
+        id: "task-1",
+        title: "Complete 30-minute workout",
+        dueDate: new Date().toISOString().split("T")[0],
+        suggestedDueDate: new Date().toISOString().split("T")[0],
         createdAt: Date.now() - 5 * 24 * 60 * 60 * 1000,
-        goalId: 'fitness-goal',
-        tags: ['exercise', 'health'],
+        goalId: "fitness-goal",
+        tags: ["exercise", "health"],
         completed: true,
-        priority: 'high',
+        priority: "high",
         isArchived: false,
-        repeatPattern: { type: 'daily', interval: 1 },
+        repeatPattern: { type: "daily", interval: 1 },
         completionTimestamp: Date.now() - 4 * 24 * 60 * 60 * 1000,
         xp: 50,
-        timeSpent: 30 * 60 * 1000
+        timeSpent: 30 * 60 * 1000,
       },
       {
-        id: 'task-2',
-        title: 'Update resume',
-        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        suggestedDueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        id: "task-2",
+        title: "Update resume",
+        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .split("T")[0],
+        suggestedDueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .split("T")[0],
         createdAt: Date.now() - 10 * 24 * 60 * 60 * 1000,
-        goalId: 'work-goal',
-        tags: ['career', 'job'],
+        goalId: "work-goal",
+        tags: ["career", "job"],
         completed: false,
-        priority: 'medium',
+        priority: "medium",
         isArchived: false,
         repeatPattern: null,
         completionTimestamp: null,
-        xp: 75
+        xp: 75,
       },
       {
-        id: 'task-3',
-        title: 'Read a personal development book',
-        dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        suggestedDueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        id: "task-3",
+        title: "Read a personal development book",
+        dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .split("T")[0],
+        suggestedDueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .split("T")[0],
         createdAt: Date.now() - 15 * 24 * 60 * 60 * 1000,
-        goalId: 'personal-dev',
-        tags: ['reading', 'learning'],
+        goalId: "personal-dev",
+        tags: ["reading", "learning"],
         completed: false,
-        priority: 'low',
+        priority: "low",
         isArchived: false,
         repeatPattern: null,
         completionTimestamp: null,
-        xp: 50
+        xp: 50,
       },
       {
-        id: 'task-4',
-        title: 'Research interview questions',
-        dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        suggestedDueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        id: "task-4",
+        title: "Research interview questions",
+        dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .split("T")[0],
+        suggestedDueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .split("T")[0],
         createdAt: Date.now() - 2 * 24 * 60 * 60 * 1000,
-        goalId: 'work-goal',
-        tags: ['interview', 'preparation'],
+        goalId: "work-goal",
+        tags: ["interview", "preparation"],
         completed: false,
-        priority: 'high',
+        priority: "high",
         isArchived: false,
         repeatPattern: null,
         completionTimestamp: null,
-        dependencies: ['task-2'],
-        xp: 100
-      }
+        dependencies: ["task-2"],
+        xp: 100,
+      },
+      // Additional repeating tasks for testing history
+      {
+        id: "task-5",
+        title: "Meditate for 10 minutes",
+        dueDate: new Date().toISOString().split("T")[0],
+        suggestedDueDate: new Date().toISOString().split("T")[0],
+        createdAt: Date.now() - 60 * 24 * 60 * 60 * 1000, // Created 60 days ago
+        goalId: "personal-dev",
+        tags: ["wellbeing", "mindfulness"],
+        completed: true,
+        priority: "medium",
+        isArchived: false,
+        repeatPattern: { type: "daily", interval: 1 },
+        completionTimestamp: Date.now() - 1 * 24 * 60 * 60 * 1000, // Completed yesterday
+        xp: 30,
+      },
+      {
+        id: "task-6",
+        title: "Weekly planning session",
+        dueDate: new Date().toISOString().split("T")[0],
+        suggestedDueDate: new Date().toISOString().split("T")[0],
+        createdAt: Date.now() - 90 * 24 * 60 * 60 * 1000, // Created 90 days ago
+        goalId: "work-goal",
+        tags: ["planning", "productivity"],
+        completed: false,
+        priority: "high",
+        isArchived: false,
+        repeatPattern: { type: "weekly", interval: 1 },
+        completionTimestamp: null,
+        xp: 50,
+      },
+      {
+        id: "task-7",
+        title: "Learn a new coding skill",
+        dueDate: new Date().toISOString().split("T")[0],
+        suggestedDueDate: new Date().toISOString().split("T")[0],
+        createdAt: Date.now() - 45 * 24 * 60 * 60 * 1000, // Created 45 days ago
+        goalId: "personal-dev",
+        tags: ["coding", "learning"],
+        completed: true,
+        priority: "medium",
+        isArchived: false,
+        repeatPattern: { type: "weekly", interval: 1 },
+        completionTimestamp: Date.now() - 2 * 24 * 60 * 60 * 1000, // Completed 2 days ago
+        xp: 80,
+      },
     ];
 
     // Add tasks
     for (const task of initialTasks) {
       await this.addTask(task);
     }
-  }
+
+    // Add some history entries to simulate task completion history
+    // This will help demonstrate the streak and history features
+    const today = new Date();
+    const now = Date.now();
+
+    // Create history for the daily workout task (task-1)
+    for (let i = 1; i <= 60; i++) {
+      // Skip some days randomly to create realistic completion patterns
+      if (i % 4 === 0 || i % 7 === 0) {
+        continue; // Skip this day to simulate missed days
+      }
+
+      const timestamp = now - i * 24 * 60 * 60 * 1000;
+      await this.addHistoryEntry({
+        id: crypto.randomUUID(),
+        type: "complete",
+        entityId: "task-1",
+        entityType: "task",
+        timestamp: timestamp,
+        details: { title: "Complete 30-minute workout" },
+      });
+    }
+
+    // Create history for meditation task (task-5)
+    // Create a good streak recently
+    for (let i = 1; i <= 14; i++) {
+      const timestamp = now - i * 24 * 60 * 60 * 1000;
+      await this.addHistoryEntry({
+        id: crypto.randomUUID(),
+        type: "complete",
+        entityId: "task-5",
+        entityType: "task",
+        timestamp: timestamp,
+        details: { title: "Meditate for 10 minutes" },
+      });
+    }
+
+    // Add some gaps and then more history
+    for (let i = 20; i <= 50; i++) {
+      // Create pattern with more gaps
+      if (i % 3 === 0 || i % 5 === 0) {
+        continue; // Skip to create gaps
+      }
+
+      const timestamp = now - i * 24 * 60 * 60 * 1000;
+      await this.addHistoryEntry({
+        id: crypto.randomUUID(),
+        type: "complete",
+        entityId: "task-5",
+        entityType: "task",
+        timestamp: timestamp,
+        details: { title: "Meditate for 10 minutes" },
+      });
+    }
+
+    // Create weekly coding skill task history (task-7)
+    for (let i = 1; i <= 6; i++) {
+      const timestamp = now - i * 7 * 24 * 60 * 60 * 1000;
+      await this.addHistoryEntry({
+        id: crypto.randomUUID(),
+        type: "complete",
+        entityId: "task-7",
+        entityType: "task",
+        timestamp: timestamp,
+        details: { title: "Learn a new coding skill" },
+      });
+    }
+  },
 };

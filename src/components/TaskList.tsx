@@ -3,7 +3,7 @@ import { useApp } from "@/context/AppContext";
 import { Button } from "@/components/ui/button";
 import { TaskItem } from "./TaskItem";
 import { CommandInput } from "./CommandInput";
-import { Plus, Mic } from "lucide-react";
+import { Plus, Mic, Network } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -28,6 +28,8 @@ import {
   suggestDueDate,
   parseDateExpression,
 } from "@/lib/taskUtils";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { GraphView } from "./GraphView";
 
 // Define the SpeechRecognition type to avoid TypeScript errors
 interface SpeechRecognition extends EventTarget {
@@ -84,6 +86,7 @@ export function TaskList() {
   const [suggestedTags, setSuggestedTags] = useState<string[]>([]);
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
+  const [activeView, setActiveView] = useState<"list" | "graph">("list");
 
   // Speech recognition setup
   const startListening = () => {
@@ -176,7 +179,10 @@ export function TaskList() {
 
   const handleAddTask = async () => {
     if (newTask.title?.trim()) {
-      await createTask(newTask);
+      await createTask({
+        ...newTask,
+        dependencies: [], // Initialize dependencies as an empty array
+      });
 
       // Reset form
       setNewTask({
@@ -185,6 +191,7 @@ export function TaskList() {
         goalId: currentGoalId,
         tags: [],
         priority: "medium",
+        dependencies: [], // Reset dependencies
       });
 
       setSuggestedTags([]);
@@ -244,89 +251,114 @@ export function TaskList() {
     };
   }, [isFocusMode, sortedTasks]);
 
+  // Get current goal name for header
+  const currentGoal = goals.find((goal) => goal.id === currentGoalId);
+  const headerText = currentGoalId
+    ? `Tasks for ${currentGoal?.title}`
+    : "All Tasks";
+
+  // Debug logging for view state
+  useEffect(() => {
+    console.log("TaskList view state:", {
+      activeView,
+      currentGoalId,
+      hasGoal: !!currentGoalId,
+      shouldShowGraph: activeView === "graph" && !!currentGoalId,
+    });
+  }, [activeView, currentGoalId]);
+
+  // Handle view toggle
+  const toggleView = (view: "list" | "graph") => {
+    console.log(`Switching to ${view} view`);
+    setActiveView(view);
+  };
+
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      {/* Header - Hidden in focus mode */}
-      {!isFocusMode && (
-        <div className="flex-shrink-0 flex items-center justify-between p-2 sm:p-4 border-b">
-          <h1 className="text-base sm:text-xl font-bold truncate pr-2">
-            {currentGoalId
-              ? goals.find((g) => g.id === currentGoalId)?.title || "Tasks"
-              : isFocusMode
-              ? "Focus Mode"
-              : "All Tasks"}
-          </h1>
-
-          <div className="flex gap-1 sm:gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={startListening}
-              className={isListening ? "animate-pulse-light" : ""}
-            >
-              <Mic
-                size={16}
-                className={isListening ? "text-achievo-purple" : ""}
-              />
-            </Button>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsAddTaskDialogOpen(true)}
-              className="text-xs sm:text-sm py-1 h-8 px-2 sm:px-3"
-            >
-              <Plus size={14} className="mr-1" />
-              <span className="hidden xs:inline">Add Task</span>
-              <span className="xs:hidden">Add</span>
-            </Button>
-          </div>
+      <div className="border-b p-3 flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold">{headerText}</h1>
+          {/* Focus Mode Timer Display */}
+          {isFocusMode && focusTimer !== null && (
+            <div className="text-xl font-bold">
+              {Math.floor(focusTimer / 60)}:
+              {(focusTimer % 60).toString().padStart(2, "0")}
+            </div>
+          )}
         </div>
-      )}
 
-      {/* Command Input - Hidden in focus mode */}
-      {!isFocusMode && (
-        <div className="flex-shrink-0 px-2 sm:px-4 py-2 sm:py-3 border-b">
-          <CommandInput />
-        </div>
-      )}
-
-      {/* Task List */}
-      <div className="flex-1 overflow-y-auto p-2 sm:p-4 task-list-container min-h-0">
-        {sortedTasks.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-            {isFocusMode ? (
-              <p className="text-center text-sm sm:text-base px-4">
-                No priority tasks. Add some high-priority tasks to focus on.
-              </p>
-            ) : (
-              <>
-                <p className="text-center text-sm sm:text-base">No tasks yet</p>
+        <div className="flex gap-2">
+          {!isFocusMode && (
+            <>
+              {currentGoalId && (
                 <Button
-                  variant="link"
-                  onClick={() => setIsAddTaskDialogOpen(true)}
-                  className="mt-2 text-xs sm:text-sm"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    toggleView(activeView === "list" ? "graph" : "list")
+                  }
                 >
-                  Add your first task
+                  <Network size={16} className="mr-1" />
+                  {activeView === "list" ? "Graph View" : "List View"}
                 </Button>
-              </>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-2 pb-4">
-            {sortedTasks.map((task) => (
-              <div
-                key={task.id}
-                id={`task-${task.id}`}
-                className={`group border rounded-lg p-2 sm:p-3 hover:bg-accent/50 transition-colors task-row ${
-                  isFocusMode && sortedTasks[0].id === task.id
-                    ? "focus-highlight ring-2 ring-achievo-purple"
-                    : ""
-                }`}
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsAddTaskDialogOpen(true)}
               >
+                <Plus size={16} className="mr-1" />
+                Add Task
+              </Button>
+              <Button variant="outline" size="icon" onClick={startListening}>
+                <Mic size={16} />
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Command input for quick add */}
+      <CommandInput />
+
+      {/* View selector */}
+      {!isFocusMode && currentGoalId && (
+        <div className="border-b px-3 py-2">
+          <Tabs
+            value={activeView}
+            onValueChange={(v) => toggleView(v as "list" | "graph")}
+            className="w-full"
+          >
+            <TabsList className="grid w-60 grid-cols-2">
+              <TabsTrigger value="list">List View</TabsTrigger>
+              <TabsTrigger value="graph">Graph View</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+      )}
+
+      {/* Main content - either list or graph */}
+      <div className="flex-1 overflow-auto">
+        {activeView === "list" || !currentGoalId ? (
+          <ul className="space-y-2 p-3">
+            {sortedTasks.map((task) => (
+              <li key={task.id} className="border rounded-lg shadow-sm">
                 <TaskItem task={task} />
-              </div>
+              </li>
             ))}
+            {sortedTasks.length === 0 && (
+              <li className="text-center py-8 text-muted-foreground">
+                No tasks to display
+              </li>
+            )}
+          </ul>
+        ) : (
+          <div
+            id="graph-container"
+            className="h-full w-full"
+            style={{ height: "calc(100vh - 160px)" }}
+          >
+            <GraphView goalId={currentGoalId} />
           </div>
         )}
       </div>

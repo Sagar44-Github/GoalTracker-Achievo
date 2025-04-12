@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart3, ListTodo } from "lucide-react";
 import { FocusMode } from "@/components/FocusMode";
 import { cn } from "@/lib/utils";
+import { GamificationView } from "@/components/GamificationView";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState<"tasks" | "dashboard">("tasks");
@@ -17,6 +18,7 @@ const Index = () => {
 
   // Default value if context is not available
   const isFocusMode = appContext?.isFocusMode || false;
+  const showGamificationView = appContext?.showGamificationView || false;
 
   // Check for mobile screen
   useEffect(() => {
@@ -41,6 +43,19 @@ const Index = () => {
       setActiveTab("tasks");
     }
   }, [isFocusMode]);
+
+  // Show gamification view if selected
+  if (showGamificationView && !isFocusMode) {
+    return (
+      <div className="h-screen flex overflow-hidden">
+        {/* Only show sidebar when not in focus mode */}
+        <Sidebar />
+        <div className="flex-1 overflow-auto">
+          <GamificationView />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div

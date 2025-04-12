@@ -202,7 +202,44 @@ html.focus-mode .main-content {
   transition: opacity 300ms, transform 300ms;
 }
 
-/* Ensure the floating dashboard works well in PWA mode */
+/* Mobile Improvements */
+@media (max-width: 767px) {
+  /* Improve touch targets */
+  button,
+  a,
+  .task-checkbox,
+  .drag-handle {
+    @apply min-h-[36px] min-w-[36px];
+  }
+
+  /* Prevent zoom on input focus */
+  input,
+  textarea,
+  select {
+    @apply text-base;
+    font-size: 16px !important;
+  }
+
+  /* Improve floating dashboard on mobile */
+  .floating-dashboard {
+    @apply shadow-2xl border-2;
+    touch-action: none;
+  }
+
+  /* Allow touch scrolling in areas that need it */
+  .task-list-container,
+  .task-content,
+  .overflow-y-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Make buttons easier to press */
+  .task-checkbox {
+    @apply scale-110;
+  }
+}
+
+/* PWA Support */
 @media (display-mode: standalone) {
   /* Adjust for mobile platforms */
   .floating-dashboard {

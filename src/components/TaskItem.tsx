@@ -13,6 +13,7 @@ import {
   CalendarDays,
   AlertCircle,
   Tag,
+  BarChart2,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { TaskRepetitionHistory } from "./TaskRepetitionHistory";
+import { toast } from "@/hooks/use-toast";
 
 interface TaskItemProps {
   task: Task;
@@ -54,10 +57,12 @@ export function TaskItem({ task }: TaskItemProps) {
     archiveTask,
     currentGoalId,
     isFocusMode,
+    tasks,
   } = useApp();
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editedTask, setEditedTask] = useState<Task>(task);
+  const [showHistory, setShowHistory] = useState(false);
 
   // Format due date
   const dueDateText = formatDate(task.dueDate);
@@ -78,11 +83,32 @@ export function TaskItem({ task }: TaskItemProps) {
 
   const handleComplete = (e: React.MouseEvent) => {
     e.stopPropagation();
+
+    // Check if this task has uncompleted dependencies
+    if (!task.completed && task.dependencies && task.dependencies.length > 0) {
+      const hasPendingDependencies = task.dependencies.some((depId) => {
+        const depTask = tasks?.find((t) => t.id === depId);
+        return depTask && !depTask.completed;
+      });
+
+      if (hasPendingDependencies) {
+        toast({
+          title: "Task blocked",
+          description: "Complete prerequisite tasks first",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     completeTask(task.id);
   };
 
   const handleEdit = () => {
-    setEditedTask({ ...task });
+    setEditedTask({
+      ...task,
+      dependencies: task.dependencies || [], // Ensure dependencies is initialized
+    });
     setIsEditDialogOpen(true);
   };
 
@@ -164,19 +190,50 @@ export function TaskItem({ task }: TaskItemProps) {
               </div>
 
               {/* Tags */}
-              {task.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {task.tags.map((tag) => (
-                    <Badge
-                      key={tag}
-                      variant="outline"
-                      className="px-2 py-0 text-xs"
-                    >
-                      #{tag}
-                    </Badge>
-                  ))}
-                </div>
-              )}
+              <div className="flex flex-wrap items-center gap-1 mt-1">
+                {task.tags.length > 0 && (
+                  <>
+                    {task.tags.map((tag) => (
+                      <Badge
+                        key={tag}
+                        variant="outline"
+                        className="px-2 py-0 text-xs"
+                      >
+                        #{tag}
+                      </Badge>
+                    ))}
+                  </>
+                )}
+
+                {/* Dependencies indicator */}
+                {task.dependencies && task.dependencies.length > 0 && (
+                  <Badge
+                    variant="outline"
+                    className="px-2 py-0 text-xs bg-muted"
+                  >
+                    {task.dependencies.length}{" "}
+                    {task.dependencies.length === 1
+                      ? "dependency"
+                      : "dependencies"}
+                  </Badge>
+                )}
+
+                {/* History toggle button for repeating tasks */}
+                {task.repeatPattern && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-5 px-2 ml-auto text-[10px] gap-1"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowHistory(!showHistory);
+                    }}
+                  >
+                    <BarChart2 size={12} />
+                    {showHistory ? "Hide History" : "Show History"}
+                  </Button>
+                )}
+              </div>
             </div>
 
             {/* Actions - Hide dropdown menu button in focus mode */}
@@ -215,79 +272,79 @@ export function TaskItem({ task }: TaskItemProps) {
         </div>
       </div>
 
+      {/* Task Repetition History for repeating tasks */}
+      {task.repeatPattern && showHistory && (
+        <TaskRepetitionHistory task={task} />
+      )}
+
       {/* Edit Task Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Task</DialogTitle>
-            <DialogDescription>Update the task details.</DialogDescription>
           </DialogHeader>
-
-          <div className="space-y-4 mt-4">
+          <div className="space-y-4 mt-2">
             <div className="space-y-2">
-              <Label htmlFor="editTitle">Task</Label>
+              <Label htmlFor="title">Title</Label>
               <Input
-                id="editTitle"
+                id="title"
                 value={editedTask.title}
                 onChange={(e) =>
                   setEditedTask({ ...editedTask, title: e.target.value })
                 }
-                autoFocus
               />
             </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="editDueDate">Due Date</Label>
-                <Input
-                  id="editDueDate"
-                  type="date"
-                  value={editedTask.dueDate || ""}
-                  onChange={(e) =>
-                    setEditedTask({
-                      ...editedTask,
-                      dueDate: e.target.value || null,
-                    })
-                  }
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="editPriority">Priority</Label>
-                <Select
-                  value={editedTask.priority}
-                  onValueChange={(value) =>
-                    setEditedTask({ ...editedTask, priority: value as any })
-                  }
-                >
-                  <SelectTrigger id="editPriority">
-                    <SelectValue placeholder="Select priority" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="low">Low</SelectItem>
-                    <SelectItem value="medium">Medium</SelectItem>
-                    <SelectItem value="high">High</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
             <div className="space-y-2">
-              <Label htmlFor="editGoalId">Goal</Label>
+              <Label htmlFor="due-date">Due Date</Label>
+              <Input
+                type="date"
+                id="due-date"
+                value={editedTask.dueDate || ""}
+                onChange={(e) =>
+                  setEditedTask({
+                    ...editedTask,
+                    dueDate: e.target.value || null,
+                  })
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="priority">Priority</Label>
               <Select
-                value={editedTask.goalId || "none"}
+                value={editedTask.priority}
                 onValueChange={(value) =>
                   setEditedTask({
                     ...editedTask,
-                    goalId: value === "none" ? null : value,
+                    priority: value as "low" | "medium" | "high",
                   })
                 }
               >
-                <SelectTrigger id="editGoalId">
-                  <SelectValue placeholder="Select a goal" />
+                <SelectTrigger>
+                  <SelectValue placeholder="Select priority" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">No Goal</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="medium">Medium</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="goal">Goal</Label>
+              <Select
+                value={editedTask.goalId || ""}
+                onValueChange={(value) =>
+                  setEditedTask({
+                    ...editedTask,
+                    goalId: value || null,
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="No goal" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">No goal</SelectItem>
                   {goals.map((goal) => (
                     <SelectItem key={goal.id} value={goal.id}>
                       {goal.title}
@@ -296,37 +353,54 @@ export function TaskItem({ task }: TaskItemProps) {
                 </SelectContent>
               </Select>
             </div>
-
             <div className="space-y-2">
-              <Label htmlFor="editTags">Tags</Label>
+              <Label htmlFor="tags">Tags (comma-separated)</Label>
               <Textarea
-                id="editTags"
-                placeholder="Add tags separated by comma"
+                id="tags"
                 value={editedTask.tags.join(", ")}
                 onChange={handleTagChange}
-                className="h-20"
               />
-
-              {/* Tags display */}
-              <div className="flex flex-wrap gap-1 mt-2">
-                {editedTask.tags.map((tag) => (
-                  <Badge key={tag} variant="outline" className="px-2 py-1">
-                    #{tag}
-                    <button
-                      className="ml-1 text-muted-foreground hover:text-foreground"
-                      onClick={() => {
-                        setEditedTask({
-                          ...editedTask,
-                          tags: editedTask.tags.filter((t) => t !== tag),
-                        });
-                      }}
-                    >
-                      &times;
-                    </button>
-                  </Badge>
-                ))}
-              </div>
             </div>
+
+            {/* Display Dependencies */}
+            {editedTask.dependencies && editedTask.dependencies.length > 0 && (
+              <div className="space-y-2">
+                <Label>Dependencies</Label>
+                <div className="p-2 border rounded-md space-y-1">
+                  {editedTask.dependencies.map((depId) => {
+                    const depTask = tasks?.find((t) => t.id === depId);
+                    return depTask ? (
+                      <div
+                        key={depId}
+                        className="flex items-center justify-between"
+                      >
+                        <span className="text-sm truncate">
+                          {depTask.title}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => {
+                            setEditedTask({
+                              ...editedTask,
+                              dependencies: editedTask.dependencies!.filter(
+                                (id) => id !== depId
+                              ),
+                            });
+                          }}
+                        >
+                          <Trash2 size={14} />
+                        </Button>
+                      </div>
+                    ) : null;
+                  })}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  To add more dependencies, use the Graph View
+                </p>
+              </div>
+            )}
 
             <Button onClick={handleSaveEdit} className="w-full">
               Save Changes

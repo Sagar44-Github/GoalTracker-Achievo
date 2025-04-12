@@ -7,6 +7,7 @@ import React, {
 } from "react";
 import { Goal, Task, HistoryEntry, db } from "@/lib/db";
 import { toast } from "@/hooks/use-toast";
+import { applyTaskCompletionXP } from "@/lib/gamificationUtils";
 
 // Define the type for our context
 interface AppContextType {
@@ -17,6 +18,7 @@ interface AppContextType {
   isDarkMode: boolean;
   isFocusMode: boolean;
   focusTimer: number | null;
+  showGamificationView: boolean;
 
   // Methods
   setCurrentGoalId: (goalId: string | null) => void;
@@ -35,6 +37,7 @@ interface AppContextType {
     command: string
   ) => Promise<{ success: boolean; message: string }>;
   toggleDarkMode: () => void;
+  toggleGamificationView: (show?: boolean) => void;
   refreshData: () => Promise<void>;
 
   // Focus mode methods
@@ -65,6 +68,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [focusTimer, setFocusTimer] = useState<number | null>(null);
   const [focusTimerInterval, setFocusTimerInterval] =
     useState<NodeJS.Timeout | null>(null);
+
+  // Gamification view state
+  const [showGamificationView, setShowGamificationView] = useState(false);
 
   // Error handling for the context
   const [contextError, setContextError] = useState<Error | null>(null);
@@ -247,9 +253,70 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const completeTask = async (id: string): Promise<void> => {
     const task = await db.getTask(id);
     if (task) {
+      // Check for dependencies if trying to complete the task
+      if (
+        !task.completed &&
+        task.dependencies &&
+        task.dependencies.length > 0
+      ) {
+        const allTasks = await db.getTasks();
+        const hasPendingDependencies = task.dependencies.some((depId) => {
+          const depTask = allTasks.find((t) => t.id === depId);
+          return depTask && !depTask.completed;
+        });
+
+        if (hasPendingDependencies) {
+          toast({
+            title: "Cannot complete task",
+            description: "Complete prerequisite tasks first",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
       task.completed = !task.completed;
       task.completionTimestamp = task.completed ? Date.now() : null;
       await db.updateTask(task);
+
+      // If task was marked as completed and belongs to a goal, apply XP
+      if (task.completed && task.goalId) {
+        try {
+          const result = await applyTaskCompletionXP(task.id);
+
+          // Notify user of XP gained
+          if (result.xpEarned > 0) {
+            toast({
+              title: `+${result.xpEarned} XP`,
+              description: "Task completed!",
+              variant: "default",
+            });
+          }
+
+          // Notify user of level up
+          if (result.leveledUp && result.newLevel) {
+            toast({
+              title: `Level Up!`,
+              description: `Goal reached level ${result.newLevel}!`,
+              variant: "default",
+            });
+          }
+
+          // Notify user of new badges
+          if (result.newBadges.length > 0) {
+            for (const badge of result.newBadges) {
+              toast({
+                title: `New Badge: ${badge.name}`,
+                description: badge.description,
+                variant: "default",
+              });
+            }
+          }
+        } catch (error) {
+          console.error("Failed to apply XP for task completion:", error);
+        }
+      }
+
       await refreshData();
     }
   };
@@ -483,6 +550,20 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Toggle gamification view
+  const toggleGamificationView = (show?: boolean) => {
+    if (typeof show === "boolean") {
+      setShowGamificationView(show);
+    } else {
+      setShowGamificationView((prev) => !prev);
+    }
+
+    // Exit focus mode if entering gamification view
+    if (show === true && isFocusMode) {
+      exitFocusMode();
+    }
+  };
+
   // Toggle dark mode
   const toggleDarkMode = () => {
     setIsDarkMode((prev) => !prev);
@@ -499,23 +580,21 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       isDarkMode,
       isFocusMode,
       focusTimer,
-
+      showGamificationView,
       setCurrentGoalId,
       createGoal,
       updateGoal,
       deleteGoal,
-
       createTask,
       updateTask,
       completeTask,
       deleteTask,
       archiveTask,
-
       filterTasks,
       executeCommand,
       toggleDarkMode,
+      toggleGamificationView,
       refreshData,
-
       enterFocusMode,
       exitFocusMode,
     };
@@ -533,26 +612,24 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       isDarkMode: false,
       isFocusMode: false,
       focusTimer: null,
-
+      showGamificationView: false,
       setCurrentGoalId: () => {},
       createGoal: async () => "",
       updateGoal: async () => "",
       deleteGoal: async () => {},
-
       createTask: async () => "",
       updateTask: async () => "",
       completeTask: async () => {},
       deleteTask: async () => {},
       archiveTask: async () => {},
-
       filterTasks: () => {},
       executeCommand: async () => ({
         success: false,
         message: "Context error",
       }),
       toggleDarkMode: () => {},
+      toggleGamificationView: () => {},
       refreshData: async () => {},
-
       enterFocusMode: () => {},
       exitFocusMode: () => {},
     };

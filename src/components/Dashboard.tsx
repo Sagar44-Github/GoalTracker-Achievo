@@ -30,6 +30,7 @@ import {
   Clock,
   ChevronUp,
   ChevronDown,
+  Trophy,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -51,7 +52,7 @@ export function Dashboard() {
     return null;
   }
 
-  const { goals, refreshData } = appContext;
+  const { goals, refreshData, toggleGamificationView } = appContext;
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(
     null
   );
@@ -123,9 +124,20 @@ export function Dashboard() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="p-3 sm:p-6">
-        <h1 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">
-          Dashboard
-        </h1>
+        <div className="flex justify-between items-center mb-4 sm:mb-6">
+          <h1 className="text-xl sm:text-2xl font-bold">Dashboard</h1>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-1"
+            onClick={() => toggleGamificationView(true)}
+          >
+            <Trophy size={16} className="text-yellow-500" />
+            <span className="hidden sm:inline">View Achievements</span>
+            <span className="sm:hidden">Achievements</span>
+          </Button>
+        </div>
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4 mb-4 sm:mb-8">
