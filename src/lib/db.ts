@@ -1,18 +1,19 @@
-
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 
 // Define the database schema
+interface TaskStore {
+  key: string;
+  value: Task;
+  indexes: { 'by-goalId': string; 'by-dueDate': string; 'by-completed': boolean };
+}
+
 export interface AchievoDB extends DBSchema {
   goals: {
     key: string;
     value: Goal;
     indexes: { 'by-order': number };
   };
-  tasks: {
-    key: string;
-    value: Task;
-    indexes: { 'by-goalId': string; 'by-dueDate': string; 'by-completed': boolean };
-  };
+  tasks: TaskStore;
   history: {
     key: string;
     value: HistoryEntry;
@@ -30,6 +31,8 @@ export interface Goal {
   streakCounter: number;
   lastCompletedDate: string | null;
   color?: string;
+  level?: number;
+  xp?: number;
 }
 
 export interface Task {
@@ -45,6 +48,9 @@ export interface Task {
   isArchived: boolean;
   repeatPattern: RepeatPattern | null;
   completionTimestamp: number | null;
+  dependencies?: string[]; // Task IDs that this task depends on
+  xp?: number; // Experience points earned for completing this task
+  timeSpent?: number; // Time spent on this task in milliseconds
 }
 
 export interface RepeatPattern {
@@ -297,7 +303,9 @@ export const db = {
         order: 0,
         streakCounter: 5,
         lastCompletedDate: new Date().toISOString().split('T')[0],
-        color: '#4CAF50'
+        color: '#4CAF50',
+        level: 1,
+        xp: 100
       },
       {
         id: 'work-goal',
@@ -307,7 +315,9 @@ export const db = {
         order: 1,
         streakCounter: 3,
         lastCompletedDate: new Date().toISOString().split('T')[0],
-        color: '#2196F3'
+        color: '#2196F3',
+        level: 1,
+        xp: 75
       },
       {
         id: 'personal-dev',
@@ -317,7 +327,9 @@ export const db = {
         order: 2,
         streakCounter: 2,
         lastCompletedDate: null,
-        color: '#9C27B0'
+        color: '#9C27B0',
+        level: 1,
+        xp: 50
       }
     ];
 
@@ -340,7 +352,9 @@ export const db = {
         priority: 'high',
         isArchived: false,
         repeatPattern: { type: 'daily', interval: 1 },
-        completionTimestamp: Date.now() - 4 * 24 * 60 * 60 * 1000
+        completionTimestamp: Date.now() - 4 * 24 * 60 * 60 * 1000,
+        xp: 50,
+        timeSpent: 30 * 60 * 1000
       },
       {
         id: 'task-2',
@@ -354,7 +368,8 @@ export const db = {
         priority: 'medium',
         isArchived: false,
         repeatPattern: null,
-        completionTimestamp: null
+        completionTimestamp: null,
+        xp: 75
       },
       {
         id: 'task-3',
@@ -368,7 +383,24 @@ export const db = {
         priority: 'low',
         isArchived: false,
         repeatPattern: null,
-        completionTimestamp: null
+        completionTimestamp: null,
+        xp: 50
+      },
+      {
+        id: 'task-4',
+        title: 'Research interview questions',
+        dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        suggestedDueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        createdAt: Date.now() - 2 * 24 * 60 * 60 * 1000,
+        goalId: 'work-goal',
+        tags: ['interview', 'preparation'],
+        completed: false,
+        priority: 'high',
+        isArchived: false,
+        repeatPattern: null,
+        completionTimestamp: null,
+        dependencies: ['task-2'],
+        xp: 100
       }
     ];
 
