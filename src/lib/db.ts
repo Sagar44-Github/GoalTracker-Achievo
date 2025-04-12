@@ -1,7 +1,8 @@
+
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 
 // Define the database schema
-interface AchievoDB extends DBSchema {
+export interface AchievoDB extends DBSchema {
   goals: {
     key: string;
     value: Goal;
