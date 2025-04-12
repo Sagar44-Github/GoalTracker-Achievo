@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import { FloatingDashboard } from "@/components/FloatingDashboard";
+import { ScrollToTopButton } from "@/components/ScrollToTopButton";
 import { AppProvider } from "@/context/AppContext";
 
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
             <FloatingDashboard />
+            <ScrollToTopButton />
           </div>
         </BrowserRouter>
       </TooltipProvider>

@@ -1,62 +1,67 @@
-
-import { useState } from 'react';
-import { useApp } from '@/context/AppContext';
-import { cn } from '@/lib/utils';
-import { 
-  CalendarDays, 
-  CheckCircle, 
-  ChevronLeft, 
-  ChevronRight, 
+import { useState } from "react";
+import { useApp } from "@/context/AppContext";
+import { cn } from "@/lib/utils";
+import {
+  CalendarDays,
+  CheckCircle,
+  ChevronLeft,
+  ChevronRight,
   ListTodo,
-  Menu, 
-  Plus, 
+  Menu,
+  Plus,
   Settings,
   Sun,
-  Moon
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { 
+  Moon,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { GoalTab } from './GoalTab';
+} from "@/components/ui/dropdown-menu";
+import { GoalTab } from "./GoalTab";
 
 export function Sidebar() {
-  const { 
-    goals, 
-    currentGoalId, 
-    setCurrentGoalId, 
+  const {
+    goals,
+    currentGoalId,
+    setCurrentGoalId,
     createGoal,
     filterTasks,
     isDarkMode,
-    toggleDarkMode
+    toggleDarkMode,
   } = useApp();
-  
+
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [newGoalTitle, setNewGoalTitle] = useState('');
+  const [newGoalTitle, setNewGoalTitle] = useState("");
   const [isAddGoalDialogOpen, setIsAddGoalDialogOpen] = useState(false);
-  
+
   const handleAddGoal = async () => {
     if (newGoalTitle.trim()) {
       const goalId = await createGoal(newGoalTitle.trim());
-      setNewGoalTitle('');
+      setNewGoalTitle("");
       setIsAddGoalDialogOpen(false);
       setCurrentGoalId(goalId);
     }
   };
-  
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       handleAddGoal();
     }
   };
-  
+
   return (
-    <div 
+    <div
       className={cn(
         "h-screen flex flex-col border-r bg-sidebar transition-all duration-300 relative",
         isCollapsed ? "w-16" : "w-64"
@@ -67,17 +72,17 @@ export function Sidebar() {
         {!isCollapsed && (
           <h1 className="text-xl font-bold text-sidebar-foreground">Achievo</h1>
         )}
-        
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="ml-auto" 
+
+        <Button
+          variant="ghost"
+          size="icon"
+          className="ml-auto"
           onClick={() => setIsCollapsed(!isCollapsed)}
         >
           {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
         </Button>
       </div>
-      
+
       {/* Main Navigation */}
       <div className="p-3">
         <Button
@@ -88,39 +93,44 @@ export function Sidebar() {
           )}
           onClick={() => {
             setCurrentGoalId(null);
-            filterTasks('all');
+            filterTasks("all");
           }}
         >
           <ListTodo size={18} className="mr-2" />
           {!isCollapsed && <span>All Tasks</span>}
         </Button>
-        
+
         <Button
           variant="ghost"
           className="w-full justify-start mb-1"
-          onClick={() => filterTasks('today')}
+          onClick={() => filterTasks("today")}
         >
           <CalendarDays size={18} className="mr-2" />
           {!isCollapsed && <span>Today</span>}
         </Button>
-        
+
         <Button
           variant="ghost"
           className="w-full justify-start mb-1"
-          onClick={() => filterTasks('completed')}
+          onClick={() => filterTasks("completed")}
         >
           <CheckCircle size={18} className="mr-2" />
           {!isCollapsed && <span>Completed</span>}
         </Button>
       </div>
-      
-      {/* Goals Section */}
-      <div className="px-3 mt-2">
+
+      {/* Goals Section with Scrolling */}
+      <div className="px-3 mt-2 flex flex-col flex-grow overflow-hidden">
         {!isCollapsed && (
           <div className="flex items-center justify-between mb-2">
-            <h2 className="text-sm font-semibold text-sidebar-foreground">GOALS</h2>
-            
-            <Dialog open={isAddGoalDialogOpen} onOpenChange={setIsAddGoalDialogOpen}>
+            <h2 className="text-sm font-semibold text-sidebar-foreground">
+              GOALS
+            </h2>
+
+            <Dialog
+              open={isAddGoalDialogOpen}
+              onOpenChange={setIsAddGoalDialogOpen}
+            >
               <DialogTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-6 w-6">
                   <Plus size={16} />
@@ -146,8 +156,8 @@ export function Sidebar() {
             </Dialog>
           </div>
         )}
-        
-        <div className="space-y-1">
+
+        <div className="space-y-1 overflow-y-auto flex-grow pr-1 scrollbar-thin">
           {goals.map((goal) => (
             <GoalTab
               key={goal.id}
@@ -157,11 +167,11 @@ export function Sidebar() {
               onClick={() => setCurrentGoalId(goal.id)}
             />
           ))}
-          
+
           {isCollapsed && (
-            <Button 
-              variant="ghost" 
-              size="icon" 
+            <Button
+              variant="ghost"
+              size="icon"
               onClick={() => setIsAddGoalDialogOpen(true)}
               className="w-full h-8 flex items-center justify-center"
             >
@@ -170,17 +180,13 @@ export function Sidebar() {
           )}
         </div>
       </div>
-      
+
       {/* Sidebar Footer */}
-      <div className="mt-auto p-3 border-t flex items-center justify-between">
-        <Button 
-          variant="ghost" 
-          size="icon"
-          onClick={toggleDarkMode}
-        >
+      <div className="p-3 border-t flex items-center justify-between">
+        <Button variant="ghost" size="icon" onClick={toggleDarkMode}>
           {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
         </Button>
-        
+
         {!isCollapsed && (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -189,10 +195,8 @@ export function Sidebar() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem>
-                Account Settings
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => filterTasks('archived')}>
+              <DropdownMenuItem>Account Settings</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => filterTasks("archived")}>
                 View Archive
               </DropdownMenuItem>
             </DropdownMenuContent>

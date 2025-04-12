@@ -10,12 +10,30 @@ import { cn } from "@/lib/utils";
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState<"tasks" | "dashboard">("tasks");
+  const [isMobile, setIsMobile] = useState(false);
 
   // Get context safely
   const appContext = useApp();
 
   // Default value if context is not available
   const isFocusMode = appContext?.isFocusMode || false;
+
+  // Check for mobile screen
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    // Initial check
+    checkScreenSize();
+
+    // Add resize listener
+    window.addEventListener("resize", checkScreenSize);
+
+    return () => {
+      window.removeEventListener("resize", checkScreenSize);
+    };
+  }, []);
 
   // Switch to tasks tab when focus mode is activated
   useEffect(() => {
@@ -46,17 +64,20 @@ const Index = () => {
           {/* Only show tabs when not in focus mode */}
           {!isFocusMode ? (
             <div className="border-b px-4 py-2 tabs-header flex-shrink-0">
-              <TabsList className="grid w-[400px] grid-cols-2">
-                <TabsTrigger value="tasks" className="flex items-center gap-2">
-                  <ListTodo size={16} />
-                  Tasks
+              <TabsList className="w-full max-w-md mx-auto grid grid-cols-2">
+                <TabsTrigger
+                  value="tasks"
+                  className="flex items-center justify-center gap-1 sm:gap-2"
+                >
+                  <ListTodo className="h-4 w-4 sm:h-5 sm:w-5" />
+                  <span className="text-xs sm:text-sm">Tasks</span>
                 </TabsTrigger>
                 <TabsTrigger
                   value="dashboard"
-                  className="flex items-center gap-2"
+                  className="flex items-center justify-center gap-1 sm:gap-2"
                 >
-                  <BarChart3 size={16} />
-                  Dashboard
+                  <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5" />
+                  <span className="text-xs sm:text-sm">Dashboard</span>
                 </TabsTrigger>
               </TabsList>
             </div>

@@ -166,11 +166,11 @@ export function FloatingDashboard() {
           "fixed shadow-xl rounded-lg bg-background border border-border z-50 transition-all duration-300 floating-dashboard",
           isMobile
             ? isCollapsed
-              ? "w-36"
-              : "w-full max-w-sm"
+              ? "w-32 sm:w-36"
+              : "w-[90%] max-w-[300px]"
             : isCollapsed
-            ? "w-48"
-            : "w-72"
+            ? "w-40 sm:w-48"
+            : "w-64 sm:w-72"
         )}
         style={
           isMobile && !isCollapsed
@@ -179,10 +179,10 @@ export function FloatingDashboard() {
         }
       >
         {/* Header / Drag Handle */}
-        <div className="drag-handle flex items-center justify-between p-2 border-b cursor-move bg-muted/40 rounded-t-lg">
+        <div className="drag-handle flex items-center justify-between p-2 border-b cursor-move">
           <div className="flex items-center gap-1">
-            <GripHorizontal size={16} className="text-muted-foreground" />
-            <span className="font-medium text-sm">
+            <GripHorizontal size={14} className="text-muted-foreground" />
+            <span className="font-medium text-xs sm:text-sm">
               {isCollapsed ? "Dashboard" : "Mini Dashboard"}
             </span>
           </div>
@@ -190,39 +190,41 @@ export function FloatingDashboard() {
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6"
+              className="h-5 w-5 sm:h-6 sm:w-6"
               onClick={() => setIsCollapsed(!isCollapsed)}
             >
               {isCollapsed ? (
-                <ChevronDown size={14} />
+                <ChevronDown size={12} className="sm:size-14" />
               ) : (
-                <ChevronUp size={14} />
+                <ChevronUp size={12} className="sm:size-14" />
               )}
             </Button>
             <Button
               variant="ghost"
               size="icon"
-              className="h-6 w-6 text-muted-foreground"
+              className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground"
               onClick={() => setIsVisible(false)}
             >
-              <X size={14} />
+              <X size={12} className="sm:size-14" />
             </Button>
           </div>
         </div>
 
         {/* Widget Body */}
         {!isCollapsed && (
-          <div className="p-3 space-y-3">
+          <div className="p-2 sm:p-3 space-y-2 sm:space-y-3">
             {/* XP Bar */}
             <div>
               <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-1 text-xs">
-                  <Zap size={14} className="text-yellow-500" />
+                <div className="flex items-center gap-1 text-[10px] sm:text-xs">
+                  <Zap size={12} className="text-yellow-500 sm:size-14" />
                   <span className="font-medium">XP Progress</span>
                 </div>
-                <span className="text-xs font-mono">{currentXP} XP</span>
+                <span className="text-[10px] sm:text-xs font-mono">
+                  {currentXP} XP
+                </span>
               </div>
-              <div className="h-2 bg-muted rounded-full overflow-hidden">
+              <div className="h-1.5 sm:h-2 bg-muted rounded-full overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-yellow-500 to-achievo-purple"
                   style={{
@@ -234,20 +236,20 @@ export function FloatingDashboard() {
 
             {/* Streak & Timer */}
             <div className="grid grid-cols-2 gap-2">
-              <div className="bg-muted/30 rounded-lg p-2">
-                <div className="flex items-center gap-1 text-xs mb-1">
-                  <Flame size={14} className="text-orange-500" />
+              <div className="bg-muted/30 rounded-lg p-1.5 sm:p-2">
+                <div className="flex items-center gap-1 text-[10px] sm:text-xs mb-0.5 sm:mb-1">
+                  <Flame size={12} className="text-orange-500 sm:size-14" />
                   <span className="font-medium">Current Streak</span>
                 </div>
-                <p className="text-xl font-bold">{streak} days</p>
+                <p className="text-base sm:text-xl font-bold">{streak} days</p>
               </div>
 
-              <div className="bg-muted/30 rounded-lg p-2">
-                <div className="flex items-center gap-1 text-xs mb-1">
-                  <Timer size={14} className="text-achievo-purple" />
+              <div className="bg-muted/30 rounded-lg p-1.5 sm:p-2">
+                <div className="flex items-center gap-1 text-[10px] sm:text-xs mb-0.5 sm:mb-1">
+                  <Timer size={12} className="text-achievo-purple sm:size-14" />
                   <span className="font-medium">Focus Timer</span>
                 </div>
-                <p className="text-xl font-bold font-mono">
+                <p className="text-base sm:text-xl font-bold font-mono">
                   {isFocusMode ? formatTime(focusTimer) : "--:--"}
                 </p>
               </div>
@@ -255,20 +257,20 @@ export function FloatingDashboard() {
 
             {/* Today's Tasks */}
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-1 text-xs">
-                  <ListChecks size={14} className="text-green-500" />
+              <div className="flex items-center justify-between mb-1 sm:mb-2">
+                <div className="flex items-center gap-1 text-[10px] sm:text-xs">
+                  <ListChecks size={12} className="text-green-500 sm:size-14" />
                   <span className="font-medium">Today's Tasks</span>
                 </div>
-                <span className="text-xs">
+                <span className="text-[10px] sm:text-xs">
                   {todaysTasks.filter((t) => t.completed).length}/
                   {todaysTasks.length}
                 </span>
               </div>
 
-              <div className="max-h-40 overflow-y-auto space-y-1 pr-1">
+              <div className="max-h-28 sm:max-h-40 overflow-y-auto space-y-1 pr-1">
                 {!todaysTasks || todaysTasks.length === 0 ? (
-                  <p className="text-xs text-muted-foreground text-center py-2">
+                  <p className="text-[10px] sm:text-xs text-muted-foreground text-center py-2">
                     No tasks due today
                   </p>
                 ) : (
@@ -276,14 +278,14 @@ export function FloatingDashboard() {
                     <div
                       key={task.id}
                       className={cn(
-                        "text-xs px-2 py-1.5 rounded border flex items-start gap-1.5 group",
+                        "text-[10px] sm:text-xs px-2 py-1 sm:py-1.5 rounded border flex items-start gap-1 sm:gap-1.5 group",
                         task.completed ? "opacity-70" : ""
                       )}
                     >
                       <button
                         onClick={(e) => handleToggleComplete(task.id, e)}
                         className={cn(
-                          "w-4 h-4 mt-0 flex-shrink-0 rounded-full border flex items-center justify-center",
+                          "w-3 h-3 sm:w-4 sm:h-4 mt-0 flex-shrink-0 rounded-full border flex items-center justify-center",
                           task.completed
                             ? "bg-green-500 border-green-500"
                             : "border-muted-foreground"
@@ -295,7 +297,7 @@ export function FloatingDashboard() {
                         }
                       >
                         {task.completed && (
-                          <Check size={10} className="text-white" />
+                          <Check size={8} className="text-white sm:size-10" />
                         )}
                       </button>
                       <span
@@ -308,7 +310,7 @@ export function FloatingDashboard() {
                       </span>
                       <div
                         className={cn(
-                          "w-2 h-2 rounded-full mt-1 flex-shrink-0",
+                          "w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full mt-1 flex-shrink-0",
                           task.priority === "high"
                             ? "bg-destructive"
                             : task.priority === "medium"
@@ -326,24 +328,26 @@ export function FloatingDashboard() {
 
         {/* Collapsed View */}
         {isCollapsed && (
-          <div className="p-2 flex items-center justify-around">
+          <div className="p-1.5 sm:p-2 flex items-center justify-around">
             <div className="flex flex-col items-center">
-              <Zap size={14} className="text-yellow-500" />
-              <span className="text-xs font-mono">{currentXP}</span>
+              <Zap size={12} className="text-yellow-500 sm:size-14" />
+              <span className="text-[10px] sm:text-xs font-mono">
+                {currentXP}
+              </span>
             </div>
             <div className="flex flex-col items-center">
-              <Flame size={14} className="text-orange-500" />
-              <span className="text-xs font-mono">{streak}</span>
+              <Flame size={12} className="text-orange-500 sm:size-14" />
+              <span className="text-[10px] sm:text-xs font-mono">{streak}</span>
             </div>
             <div className="flex flex-col items-center">
-              <Timer size={14} className="text-achievo-purple" />
-              <span className="text-xs font-mono">
+              <Timer size={12} className="text-achievo-purple sm:size-14" />
+              <span className="text-[10px] sm:text-xs font-mono">
                 {isFocusMode ? formatTime(focusTimer).split(":")[0] : "--"}
               </span>
             </div>
             <div className="flex flex-col items-center">
-              <ListChecks size={14} className="text-green-500" />
-              <span className="text-xs font-mono">
+              <ListChecks size={12} className="text-green-500 sm:size-14" />
+              <span className="text-[10px] sm:text-xs font-mono">
                 {todaysTasks.filter((t) => t.completed).length}/
                 {todaysTasks.length}
               </span>

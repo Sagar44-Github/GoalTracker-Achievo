@@ -248,8 +248,8 @@ export function TaskList() {
     <div className="h-full flex flex-col overflow-hidden">
       {/* Header - Hidden in focus mode */}
       {!isFocusMode && (
-        <div className="flex-shrink-0 flex items-center justify-between p-4 border-b">
-          <h1 className="text-xl font-bold">
+        <div className="flex-shrink-0 flex items-center justify-between p-2 sm:p-4 border-b">
+          <h1 className="text-base sm:text-xl font-bold truncate pr-2">
             {currentGoalId
               ? goals.find((g) => g.id === currentGoalId)?.title || "Tasks"
               : isFocusMode
@@ -257,7 +257,7 @@ export function TaskList() {
               : "All Tasks"}
           </h1>
 
-          <div className="flex gap-2">
+          <div className="flex gap-1 sm:gap-2">
             <Button
               variant="ghost"
               size="icon"
@@ -265,7 +265,7 @@ export function TaskList() {
               className={isListening ? "animate-pulse-light" : ""}
             >
               <Mic
-                size={18}
+                size={16}
                 className={isListening ? "text-achievo-purple" : ""}
               />
             </Button>
@@ -274,8 +274,11 @@ export function TaskList() {
               variant="outline"
               size="sm"
               onClick={() => setIsAddTaskDialogOpen(true)}
+              className="text-xs sm:text-sm py-1 h-8 px-2 sm:px-3"
             >
-              <Plus size={16} className="mr-1" /> Add Task
+              <Plus size={14} className="mr-1" />
+              <span className="hidden xs:inline">Add Task</span>
+              <span className="xs:hidden">Add</span>
             </Button>
           </div>
         </div>
@@ -283,26 +286,26 @@ export function TaskList() {
 
       {/* Command Input - Hidden in focus mode */}
       {!isFocusMode && (
-        <div className="flex-shrink-0 px-4 py-3 border-b">
+        <div className="flex-shrink-0 px-2 sm:px-4 py-2 sm:py-3 border-b">
           <CommandInput />
         </div>
       )}
 
       {/* Task List */}
-      <div className="flex-1 overflow-y-auto p-4 task-list-container min-h-0">
+      <div className="flex-1 overflow-y-auto p-2 sm:p-4 task-list-container min-h-0">
         {sortedTasks.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
             {isFocusMode ? (
-              <p>
+              <p className="text-center text-sm sm:text-base px-4">
                 No priority tasks. Add some high-priority tasks to focus on.
               </p>
             ) : (
               <>
-                <p>No tasks yet</p>
+                <p className="text-center text-sm sm:text-base">No tasks yet</p>
                 <Button
                   variant="link"
                   onClick={() => setIsAddTaskDialogOpen(true)}
-                  className="mt-2"
+                  className="mt-2 text-xs sm:text-sm"
                 >
                   Add your first task
                 </Button>
@@ -315,7 +318,7 @@ export function TaskList() {
               <div
                 key={task.id}
                 id={`task-${task.id}`}
-                className={`group border rounded-lg p-3 hover:bg-accent/50 transition-colors task-row ${
+                className={`group border rounded-lg p-2 sm:p-3 hover:bg-accent/50 transition-colors task-row ${
                   isFocusMode && sortedTasks[0].id === task.id
                     ? "focus-highlight ring-2 ring-achievo-purple"
                     : ""
@@ -330,7 +333,7 @@ export function TaskList() {
 
       {/* Add Task Dialog */}
       <Dialog open={isAddTaskDialogOpen} onOpenChange={setIsAddTaskDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-full sm:max-w-lg w-[95%] sm:w-full">
           <DialogHeader>
             <DialogTitle>Add New Task</DialogTitle>
             <DialogDescription>
@@ -350,7 +353,7 @@ export function TaskList() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="dueDate">Due Date</Label>
                 <Input

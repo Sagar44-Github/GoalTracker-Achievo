@@ -23,8 +23,16 @@ import {
   Line,
   CartesianGrid,
 } from "recharts";
-import { CalendarDays, CheckCircle, TrendingUp, Clock } from "lucide-react";
+import {
+  CalendarDays,
+  CheckCircle,
+  TrendingUp,
+  Clock,
+  ChevronUp,
+  ChevronDown,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 
 interface AnalyticsData {
   tasksCompletedToday: number;
@@ -35,7 +43,15 @@ interface AnalyticsData {
 }
 
 export function Dashboard() {
-  const { goals, refreshData } = useApp();
+  const appContext = useApp();
+
+  // Return early if context is not available
+  if (!appContext) {
+    console.error("App context not available in Dashboard");
+    return null;
+  }
+
+  const { goals, refreshData } = appContext;
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(
     null
   );
@@ -106,22 +122,26 @@ export function Dashboard() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="p-6">
-        <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
+      <div className="p-3 sm:p-6">
+        <h1 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">
+          Dashboard
+        </h1>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4 mb-4 sm:mb-8">
           {/* Today's Tasks Card */}
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <CalendarDays size={18} className="text-achievo-purple" />
-                Today
+            <CardHeader className="p-2 sm:p-4 sm:pb-2">
+              <CardTitle className="text-sm sm:text-lg flex items-center gap-1 sm:gap-2">
+                <CalendarDays size={16} className="text-achievo-purple" />
+                <span>Today</span>
               </CardTitle>
-              <CardDescription>Tasks completed today</CardDescription>
+              <CardDescription className="text-xs sm:text-sm">
+                Tasks completed today
+              </CardDescription>
             </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold">
+            <CardContent className="p-2 sm:p-4 pt-0 sm:pt-0">
+              <p className="text-xl sm:text-3xl font-bold">
                 {analyticsData?.tasksCompletedToday || 0}
               </p>
             </CardContent>
@@ -129,15 +149,17 @@ export function Dashboard() {
 
           {/* Weekly Tasks Card */}
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <CheckCircle size={18} className="text-achievo-blue" />
-                This Week
+            <CardHeader className="p-2 sm:p-4 sm:pb-2">
+              <CardTitle className="text-sm sm:text-lg flex items-center gap-1 sm:gap-2">
+                <CheckCircle size={16} className="text-achievo-blue" />
+                <span>This Week</span>
               </CardTitle>
-              <CardDescription>Tasks completed this week</CardDescription>
+              <CardDescription className="text-xs sm:text-sm">
+                Tasks completed this week
+              </CardDescription>
             </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold">
+            <CardContent className="p-2 sm:p-4 pt-0 sm:pt-0">
+              <p className="text-xl sm:text-3xl font-bold">
                 {analyticsData?.tasksCompletedThisWeek || 0}
               </p>
             </CardContent>
@@ -145,17 +167,19 @@ export function Dashboard() {
 
           {/* Streak Card */}
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <TrendingUp size={18} className="text-achievo-ocean-blue" />
-                Longest Streak
+            <CardHeader className="p-2 sm:p-4 sm:pb-2">
+              <CardTitle className="text-sm sm:text-lg flex items-center gap-1 sm:gap-2">
+                <TrendingUp size={16} className="text-achievo-ocean-blue" />
+                <span>Streak</span>
               </CardTitle>
-              <CardDescription>Consecutive days of activity</CardDescription>
+              <CardDescription className="text-xs sm:text-sm">
+                Consecutive days
+              </CardDescription>
             </CardHeader>
-            <CardContent>
-              <p className="text-3xl font-bold">{maxStreak}</p>
+            <CardContent className="p-2 sm:p-4 pt-0 sm:pt-0">
+              <p className="text-xl sm:text-3xl font-bold">{maxStreak}</p>
               {streakGoal && maxStreak > 0 && (
-                <p className="text-sm text-muted-foreground">
+                <p className="text-xs sm:text-sm text-muted-foreground truncate">
                   on {streakGoal.title}
                 </p>
               )}
@@ -164,21 +188,23 @@ export function Dashboard() {
 
           {/* Most Productive Time Card */}
           <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Clock size={18} className="text-achievo-dark-purple" />
-                Peak Hours
+            <CardHeader className="p-2 sm:p-4 sm:pb-2">
+              <CardTitle className="text-sm sm:text-lg flex items-center gap-1 sm:gap-2">
+                <Clock size={16} className="text-achievo-dark-purple" />
+                <span>Peak Hours</span>
               </CardTitle>
-              <CardDescription>Most productive time</CardDescription>
+              <CardDescription className="text-xs sm:text-sm">
+                Most productive
+              </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-2 sm:p-4 pt-0 sm:pt-0">
               {loading ? (
-                <p className="text-3xl font-bold">-</p>
+                <p className="text-xl sm:text-3xl font-bold">-</p>
               ) : (
                 <>
                   {analyticsData &&
                   analyticsData.tasksCompletedByHour.length > 0 ? (
-                    <p className="text-3xl font-bold">
+                    <p className="text-xl sm:text-3xl font-bold">
                       {formatHour(
                         analyticsData.tasksCompletedByHour.reduce(
                           (maxHour, current) =>
@@ -191,7 +217,7 @@ export function Dashboard() {
                       )}
                     </p>
                   ) : (
-                    <p className="text-3xl font-bold">-</p>
+                    <p className="text-xl sm:text-3xl font-bold">-</p>
                   )}
                 </>
               )}
@@ -200,16 +226,18 @@ export function Dashboard() {
         </div>
 
         {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 pb-10">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8 pb-6 sm:pb-10">
           {/* Goal Completion Chart */}
-          <Card className="h-[400px]">
-            <CardHeader>
-              <CardTitle>Tasks by Goal</CardTitle>
-              <CardDescription>
-                Distribution of completed tasks across goals
+          <Card className="h-[300px] sm:h-[400px]">
+            <CardHeader className="p-3 sm:p-6">
+              <CardTitle className="text-sm sm:text-base">
+                Tasks by Goal
+              </CardTitle>
+              <CardDescription className="text-xs sm:text-sm">
+                Distribution of completed tasks
               </CardDescription>
             </CardHeader>
-            <CardContent className="h-[300px]">
+            <CardContent className="p-0 sm:p-0 h-[200px] sm:h-[300px]">
               {pieData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -217,15 +245,13 @@ export function Dashboard() {
                       data={pieData}
                       cx="50%"
                       cy="50%"
-                      innerRadius={60}
-                      outerRadius={90}
+                      innerRadius={40}
+                      outerRadius={70}
                       fill="#8884d8"
                       paddingAngle={5}
                       dataKey="count"
                       nameKey="goalTitle"
-                      label={({ goalTitle, percent }) =>
-                        `${goalTitle}: ${(percent * 100).toFixed(0)}%`
-                      }
+                      label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
                     >
                       {pieData.map((entry, index) => (
                         <Cell
@@ -240,12 +266,13 @@ export function Dashboard() {
                         borderRadius: "8px",
                         border: "none",
                         boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+                        fontSize: "12px",
                       }}
                     />
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="flex items-center justify-center h-full text-muted-foreground">
+                <div className="flex items-center justify-center h-full text-muted-foreground text-xs sm:text-sm">
                   No data available
                 </div>
               )}
@@ -253,26 +280,32 @@ export function Dashboard() {
           </Card>
 
           {/* Weekly Activity Chart */}
-          <Card className="h-[400px]">
-            <CardHeader>
-              <CardTitle>Daily Activity</CardTitle>
-              <CardDescription>
+          <Card className="h-[300px] sm:h-[400px]">
+            <CardHeader className="p-3 sm:p-6">
+              <CardTitle className="text-sm sm:text-base">
+                Daily Activity
+              </CardTitle>
+              <CardDescription className="text-xs sm:text-sm">
                 Tasks completed over the past 7 days
               </CardDescription>
             </CardHeader>
-            <CardContent className="h-[300px]">
+            <CardContent className="p-0 sm:p-0 h-[200px] sm:h-[300px]">
               {barData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={barData}>
+                  <BarChart
+                    data={barData}
+                    margin={{ top: 0, right: 10, left: -20, bottom: 0 }}
+                  >
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
+                    <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                    <YAxis tick={{ fontSize: 10 }} />
                     <Tooltip
                       formatter={(value) => [`${value} tasks`, "Completed"]}
                       contentStyle={{
                         borderRadius: "8px",
                         border: "none",
                         boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+                        fontSize: "12px",
                       }}
                     />
                     <Bar
@@ -284,7 +317,7 @@ export function Dashboard() {
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="flex items-center justify-center h-full text-muted-foreground">
+                <div className="flex items-center justify-center h-full text-muted-foreground text-xs sm:text-sm">
                   No data available
                 </div>
               )}
@@ -292,30 +325,36 @@ export function Dashboard() {
           </Card>
 
           {/* Hourly Activity Chart */}
-          <Card className="h-[400px] lg:col-span-2">
-            <CardHeader>
-              <CardTitle>Activity by Hour</CardTitle>
-              <CardDescription>
-                When you're most productive throughout the day
+          <Card className="h-[300px] sm:h-[400px] lg:col-span-2">
+            <CardHeader className="p-3 sm:p-6">
+              <CardTitle className="text-sm sm:text-base">
+                Activity by Hour
+              </CardTitle>
+              <CardDescription className="text-xs sm:text-sm">
+                When you're most productive
               </CardDescription>
             </CardHeader>
-            <CardContent className="h-[300px]">
+            <CardContent className="p-0 sm:p-0 h-[200px] sm:h-[300px]">
               {lineData.some((item) => item.count > 0) ? (
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={lineData}>
+                  <LineChart
+                    data={lineData}
+                    margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
+                  >
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis
                       dataKey="name"
-                      tick={{ fontSize: 12 }}
+                      tick={{ fontSize: 10 }}
                       interval="preserveStartEnd"
                     />
-                    <YAxis />
+                    <YAxis tick={{ fontSize: 10 }} />
                     <Tooltip
                       formatter={(value) => [`${value} tasks`, "Completed"]}
                       contentStyle={{
                         borderRadius: "8px",
                         border: "none",
                         boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+                        fontSize: "12px",
                       }}
                     />
                     <Line
@@ -323,14 +362,14 @@ export function Dashboard() {
                       dataKey="count"
                       stroke="#0EA5E9"
                       strokeWidth={2}
-                      dot={{ r: 4 }}
-                      activeDot={{ r: 6 }}
+                      dot={{ r: 3 }}
+                      activeDot={{ r: 5 }}
                       name="Tasks Completed"
                     />
                   </LineChart>
                 </ResponsiveContainer>
               ) : (
-                <div className="flex items-center justify-center h-full text-muted-foreground">
+                <div className="flex items-center justify-center h-full text-muted-foreground text-xs sm:text-sm">
                   No data available
                 </div>
               )}
