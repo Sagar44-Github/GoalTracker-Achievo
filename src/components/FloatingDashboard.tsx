@@ -17,9 +17,19 @@ import {
 } from "lucide-react";
 import Draggable from "react-draggable";
 
+// Augment the AppContextType to include the tasks property
+interface ExtendedAppContextType {
+  tasks?: Task[];
+  goals?: any[];
+  isFocusMode?: boolean;
+  focusTimer?: number | null;
+  currentGoalId?: string | null;
+  completeTask?: (id: string) => Promise<void>;
+}
+
 export function FloatingDashboard() {
   // Try to access context safely
-  const appContext = useApp();
+  const appContext = useApp() as ExtendedAppContextType;
 
   // Return null if context is not available to avoid errors
   if (!appContext) {
@@ -194,9 +204,9 @@ export function FloatingDashboard() {
               onClick={() => setIsCollapsed(!isCollapsed)}
             >
               {isCollapsed ? (
-                <ChevronDown size={12} className="sm:size-14" />
+                <ChevronDown size={12} className="sm:w-4 sm:h-4" />
               ) : (
-                <ChevronUp size={12} className="sm:size-14" />
+                <ChevronUp size={12} className="sm:w-4 sm:h-4" />
               )}
             </Button>
             <Button
@@ -205,7 +215,7 @@ export function FloatingDashboard() {
               className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground"
               onClick={() => setIsVisible(false)}
             >
-              <X size={12} className="sm:size-14" />
+              <X size={12} className="sm:w-4 sm:h-4" />
             </Button>
           </div>
         </div>
@@ -217,7 +227,7 @@ export function FloatingDashboard() {
             <div>
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-1 text-[10px] sm:text-xs">
-                  <Zap size={12} className="text-yellow-500 sm:size-14" />
+                  <Zap size={12} className="text-yellow-500 sm:w-4 sm:h-4" />
                   <span className="font-medium">XP Progress</span>
                 </div>
                 <span className="text-[10px] sm:text-xs font-mono">
@@ -238,7 +248,7 @@ export function FloatingDashboard() {
             <div className="grid grid-cols-2 gap-2">
               <div className="bg-muted/30 rounded-lg p-1.5 sm:p-2">
                 <div className="flex items-center gap-1 text-[10px] sm:text-xs mb-0.5 sm:mb-1">
-                  <Flame size={12} className="text-orange-500 sm:size-14" />
+                  <Flame size={12} className="text-orange-500 sm:w-4 sm:h-4" />
                   <span className="font-medium">Current Streak</span>
                 </div>
                 <p className="text-base sm:text-xl font-bold">{streak} days</p>
@@ -246,7 +256,10 @@ export function FloatingDashboard() {
 
               <div className="bg-muted/30 rounded-lg p-1.5 sm:p-2">
                 <div className="flex items-center gap-1 text-[10px] sm:text-xs mb-0.5 sm:mb-1">
-                  <Timer size={12} className="text-achievo-purple sm:size-14" />
+                  <Timer
+                    size={12}
+                    className="text-achievo-purple sm:w-4 sm:h-4"
+                  />
                   <span className="font-medium">Focus Timer</span>
                 </div>
                 <p className="text-base sm:text-xl font-bold font-mono">
@@ -259,7 +272,10 @@ export function FloatingDashboard() {
             <div>
               <div className="flex items-center justify-between mb-1 sm:mb-2">
                 <div className="flex items-center gap-1 text-[10px] sm:text-xs">
-                  <ListChecks size={12} className="text-green-500 sm:size-14" />
+                  <ListChecks
+                    size={12}
+                    className="text-green-500 sm:w-4 sm:h-4"
+                  />
                   <span className="font-medium">Today's Tasks</span>
                 </div>
                 <span className="text-[10px] sm:text-xs">
@@ -297,7 +313,10 @@ export function FloatingDashboard() {
                         }
                       >
                         {task.completed && (
-                          <Check size={8} className="text-white sm:size-10" />
+                          <Check
+                            size={8}
+                            className="text-white sm:w-3 sm:h-3"
+                          />
                         )}
                       </button>
                       <span
@@ -330,23 +349,23 @@ export function FloatingDashboard() {
         {isCollapsed && (
           <div className="p-1.5 sm:p-2 flex items-center justify-around">
             <div className="flex flex-col items-center">
-              <Zap size={12} className="text-yellow-500 sm:size-14" />
+              <Zap size={12} className="text-yellow-500 sm:w-4 sm:h-4" />
               <span className="text-[10px] sm:text-xs font-mono">
                 {currentXP}
               </span>
             </div>
             <div className="flex flex-col items-center">
-              <Flame size={12} className="text-orange-500 sm:size-14" />
+              <Flame size={12} className="text-orange-500 sm:w-4 sm:h-4" />
               <span className="text-[10px] sm:text-xs font-mono">{streak}</span>
             </div>
             <div className="flex flex-col items-center">
-              <Timer size={12} className="text-achievo-purple sm:size-14" />
+              <Timer size={12} className="text-achievo-purple sm:w-4 sm:h-4" />
               <span className="text-[10px] sm:text-xs font-mono">
                 {isFocusMode ? formatTime(focusTimer).split(":")[0] : "--"}
               </span>
             </div>
             <div className="flex flex-col items-center">
-              <ListChecks size={12} className="text-green-500 sm:size-14" />
+              <ListChecks size={12} className="text-green-500 sm:w-4 sm:h-4" />
               <span className="text-[10px] sm:text-xs font-mono">
                 {todaysTasks.filter((t) => t.completed).length}/
                 {todaysTasks.length}
