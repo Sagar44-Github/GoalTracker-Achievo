@@ -18,6 +18,9 @@ import { getInactiveGoals } from "@/lib/goalUtils";
 interface AppContextType {
   goals: (Goal & { stats: any })[];
   filteredTasks: Task[];
+  quietTasks: Task[];
+  showQuietPanel: boolean;
+  toggleQuietPanel: () => void;
   currentGoalId: string | null;
   isLoading: boolean;
   isDarkMode: boolean;
@@ -90,6 +93,16 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [goals, setGoals] = useState<(Goal & { stats: any })[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [filteredTasks, setFilteredTasks] = useState<Task[]>([]);
+  const [quietTasks, setQuietTasks] = useState<Task[]>([]);
+  const [showQuietPanel, setShowQuietPanel] = useState(() => {
+    try {
+      const savedValue = localStorage.getItem("achievo-show-quiet-panel");
+      return savedValue === "true";
+    } catch (error) {
+      console.error("Failed to load quiet panel preference:", error);
+      return false;
+    }
+  });
   const [currentGoalId, setCurrentGoalId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -344,21 +357,52 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     try {
       console.log(`Filtering tasks for goal ${goalId || "all"}`);
 
+      // Log task counts for debugging
+      const quietTasksCount = tasksToFilter.filter(
+        (t) => t.isQuiet === true
+      ).length;
+      console.log(
+        `Total tasks: ${tasksToFilter.length}, Quiet tasks: ${quietTasksCount}`
+      );
+
+      // First, filter out quiet tasks for the main task list
+      // Make sure we're explicitly checking for true/false
+      const nonQuietTasks = tasksToFilter.filter(
+        (task) => task.isQuiet !== true
+      );
+      const quietTasksList = tasksToFilter.filter(
+        (task) => task.isQuiet === true && !task.isArchived
+      );
+
+      console.log(`Filtered quiet tasks: ${quietTasksList.length}`);
+
+      // Set the quiet tasks
+      setQuietTasks(quietTasksList);
+
       if (goalId) {
         // Filter by specific goal
         setFilteredTasks(
-          tasksToFilter.filter(
+          nonQuietTasks.filter(
             (task) => task.goalId === goalId && !task.isArchived
           )
         );
       } else {
         // Show all non-archived tasks
-        setFilteredTasks(tasksToFilter.filter((task) => !task.isArchived));
+        setFilteredTasks(nonQuietTasks.filter((task) => !task.isArchived));
       }
     } catch (error) {
       console.error("Error applying task filter:", error);
       // Fallback to showing all tasks
-      setFilteredTasks(tasksToFilter.filter((task) => !task.isArchived));
+      setFilteredTasks(
+        tasksToFilter.filter(
+          (task) => !task.isArchived && task.isQuiet !== true
+        )
+      );
+      setQuietTasks(
+        tasksToFilter.filter(
+          (task) => task.isQuiet === true && !task.isArchived
+        )
+      );
     }
   };
 
@@ -386,7 +430,10 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
       // Apply filter immediately for this goal to reduce perceived delay
       const goalTasks = tasks.filter(
-        (task) => !task.isArchived && (goalId ? task.goalId === goalId : true)
+        (task) =>
+          !task.isArchived &&
+          task.isQuiet !== true &&
+          (goalId ? task.goalId === goalId : true)
       );
       setFilteredTasks(goalTasks);
 
@@ -456,36 +503,52 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   // Task operations
   const createTask = async (taskData: Partial<Task>): Promise<string> => {
-    const newTask: Task = {
-      id: crypto.randomUUID(),
-      title: taskData.title || "",
-      dueDate: taskData.dueDate || null,
-      suggestedDueDate: taskData.suggestedDueDate || null,
-      createdAt: Date.now(),
-      goalId: taskData.goalId || null,
-      tags: taskData.tags || [],
-      completed: false,
-      priority: taskData.priority || "medium",
-      isArchived: false,
-      repeatPattern: taskData.repeatPattern || null,
-      completionTimestamp: null,
-    };
+    try {
+      console.log("Creating task with data:", taskData);
 
-    const taskId = await db.addTask(newTask);
+      // Make sure isQuiet is a boolean
+      const isQuiet = taskData.isQuiet === true;
+      console.log("isQuiet value:", isQuiet);
 
-    // Update the goal's lastActiveDate if it has one
-    if (newTask.goalId) {
-      const goal = await db.getGoal(newTask.goalId);
-      if (goal) {
-        await db.updateGoal({
-          ...goal,
-          lastActiveDate: Date.now(),
-        });
+      const newTask: Task = {
+        id: crypto.randomUUID(),
+        title: taskData.title || "",
+        dueDate: taskData.dueDate || null,
+        suggestedDueDate: taskData.suggestedDueDate || null,
+        createdAt: Date.now(),
+        goalId: taskData.goalId || null,
+        tags: taskData.tags || [],
+        completed: taskData.completed || false,
+        priority: taskData.priority || "medium",
+        isArchived: false,
+        isQuiet: isQuiet, // Use our processed boolean value
+        repeatPattern: taskData.repeatPattern || null,
+        completionTimestamp: null,
+        dependencies: taskData.dependencies || [],
+        description: taskData.description || "",
+      };
+
+      console.log("Final task object to create:", newTask);
+
+      const taskId = await db.addTask(newTask);
+
+      // Update the goal's lastActiveDate if it has one
+      if (newTask.goalId) {
+        const goal = await db.getGoal(newTask.goalId);
+        if (goal) {
+          await db.updateGoal({
+            ...goal,
+            lastActiveDate: Date.now(),
+          });
+        }
       }
-    }
 
-    await refreshData();
-    return taskId;
+      await refreshData();
+      return taskId;
+    } catch (error) {
+      console.error("Error in createTask:", error);
+      throw error; // Re-throw the error so it can be caught by the caller
+    }
   };
 
   const updateTask = async (task: Task): Promise<string> => {
@@ -495,36 +558,89 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       // Get the old task to compare changes
       const oldTask = await db.getTask(task.id);
       if (!oldTask) {
-        throw new Error(`Task with id ${task.id} not found`);
+        console.warn(`Task with id ${task.id} not found, will create new`);
       }
 
-      // Update the task
-      await db.updateTask(task);
-      console.log("Task updated successfully:", task.id);
+      // Make sure isQuiet is explicitly set as a boolean value
+      const taskToUpdate = {
+        ...task,
+        isQuiet: task.isQuiet === true,
+      };
+
+      console.log("Task to update with isQuiet value:", taskToUpdate.isQuiet);
+
+      // Validate and clean the task object to ensure all required fields have values
+      const validatedTask: Task = {
+        id: taskToUpdate.id,
+        title: taskToUpdate.title || "",
+        dueDate: taskToUpdate.dueDate,
+        suggestedDueDate: taskToUpdate.suggestedDueDate,
+        createdAt: taskToUpdate.createdAt || Date.now(),
+        goalId: taskToUpdate.goalId,
+        tags: Array.isArray(taskToUpdate.tags) ? taskToUpdate.tags : [],
+        completed: Boolean(taskToUpdate.completed),
+        priority: taskToUpdate.priority || "medium",
+        isArchived: Boolean(taskToUpdate.isArchived),
+        isQuiet: Boolean(taskToUpdate.isQuiet), // Explicitly use Boolean conversion
+        repeatPattern: taskToUpdate.repeatPattern || null,
+        completionTimestamp: taskToUpdate.completionTimestamp,
+        dependencies: Array.isArray(taskToUpdate.dependencies)
+          ? taskToUpdate.dependencies
+          : [],
+        description: taskToUpdate.description || "",
+      };
+
+      // Try the standard update method first
+      try {
+        await db.updateTask(validatedTask);
+        console.log("Task updated successfully:", task.id);
+      } catch (updateError) {
+        console.error(
+          "Standard update failed, trying direct method:",
+          updateError
+        );
+
+        // Use the direct update method as fallback
+        const directSuccess = await db.directTaskUpdate(validatedTask);
+        if (!directSuccess) {
+          throw new Error("Both update methods failed");
+        }
+      }
 
       // Update the goal's lastActiveDate if it has one
-      if (task.goalId) {
-        const goal = await db.getGoal(task.goalId);
-        if (goal) {
-          await db.updateGoal({
-            ...goal,
-            lastActiveDate: Date.now(),
-          });
+      if (taskToUpdate.goalId) {
+        try {
+          const goal = await db.getGoal(taskToUpdate.goalId);
+          if (goal) {
+            await db.updateGoal({
+              ...goal,
+              lastActiveDate: Date.now(),
+            });
+          }
+        } catch (goalError) {
+          console.warn("Could not update goal lastActiveDate:", goalError);
+          // Continue even if goal update fails
         }
       }
 
       // Add history entry for this update
-      await db.addHistoryEntry({
-        id: crypto.randomUUID(),
-        type: "edit",
-        entityId: task.id,
-        entityType: "task",
-        timestamp: Date.now(),
-        details: { title: task.title },
-      });
+      try {
+        await db.addHistoryEntry({
+          id: crypto.randomUUID(),
+          type: "edit",
+          entityId: taskToUpdate.id,
+          entityType: "task",
+          timestamp: Date.now(),
+          details: { title: taskToUpdate.title },
+        });
+      } catch (historyError) {
+        console.warn("Could not add history entry:", historyError);
+        // Continue even if history update fails
+      }
 
+      // Refresh data and return
       await refreshData();
-      return task.id;
+      return taskToUpdate.id;
     } catch (error) {
       console.error("Error in updateTask:", error);
       throw new Error(
@@ -1161,6 +1277,29 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     return false;
   };
 
+  // Toggle quiet tasks panel
+  const toggleQuietPanel = () => {
+    console.log(
+      "Toggling quiet panel from",
+      showQuietPanel,
+      "to",
+      !showQuietPanel
+    );
+
+    // Update the state
+    setShowQuietPanel((prev) => !prev);
+
+    // Save the preference to localStorage
+    try {
+      localStorage.setItem(
+        "achievo-show-quiet-panel",
+        (!showQuietPanel).toString()
+      );
+    } catch (error) {
+      console.error("Failed to save quiet panel preference:", error);
+    }
+  };
+
   // Wrap provider value in try-catch to prevent unhandled errors
   let providerValue: AppContextType;
   try {
@@ -1168,6 +1307,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       goals,
       tasks,
       filteredTasks,
+      quietTasks,
+      showQuietPanel,
+      toggleQuietPanel,
       currentGoalId,
       isLoading,
       isDarkMode,
@@ -1219,6 +1361,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       goals: [],
       tasks: [],
       filteredTasks: [],
+      quietTasks: [],
+      showQuietPanel: false,
+      toggleQuietPanel: () => {},
       currentGoalId: null,
       isLoading: false,
       isDarkMode: false,
@@ -1266,6 +1411,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       updateDailyTheme: async () => "",
       getTasksMatchingCurrentTheme: () => [],
       isTaskMatchingCurrentTheme: () => false,
+      toggleQuietPanel: () => {},
     };
   }
 

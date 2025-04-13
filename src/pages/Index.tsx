@@ -14,6 +14,7 @@ import {
   RefreshCw,
   AlertTriangle,
   Trophy,
+  HardDrive,
 } from "lucide-react";
 import { FocusMode } from "@/components/FocusMode";
 import { cn } from "@/lib/utils";
@@ -74,6 +75,7 @@ const Index = () => {
   const refreshData = appContext?.refreshData;
   const createGoal = appContext?.createGoal;
   const createTask = appContext?.createTask;
+  const tasks = appContext?.tasks || [];
 
   // Handle adding demo data
   const handleAddDemoData = () => addInactivityDemoData();

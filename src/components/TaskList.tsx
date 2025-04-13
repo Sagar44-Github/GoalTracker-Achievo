@@ -3,7 +3,7 @@ import { useApp } from "@/context/AppContext";
 import { Button } from "@/components/ui/button";
 import { TaskItem } from "./TaskItem";
 import { CommandInput } from "./CommandInput";
-import { Plus, Mic, Network } from "lucide-react";
+import { Plus, Mic, Network, Feather } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -30,6 +30,8 @@ import {
 } from "@/lib/taskUtils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GraphView } from "./GraphView";
+import { QuietTasksPanel } from "./QuietTasksPanel";
+import { Switch } from "@/components/ui/switch";
 
 // Define the SpeechRecognition type to avoid TypeScript errors
 interface SpeechRecognition extends EventTarget {
@@ -69,6 +71,9 @@ export function TaskList() {
   const {
     goals,
     filteredTasks,
+    quietTasks,
+    showQuietPanel,
+    toggleQuietPanel,
     currentGoalId,
     createTask,
     isFocusMode,
@@ -185,24 +190,31 @@ export function TaskList() {
 
   const handleAddTask = async () => {
     if (newTask.title?.trim()) {
-      await createTask({
-        ...newTask,
-        dependencies: [], // Initialize dependencies as an empty array
-      });
+      try {
+        console.log("Creating task:", newTask);
+        await createTask({
+          ...newTask,
+          dependencies: [], // Initialize dependencies as an empty array
+          isQuiet: newTask.isQuiet || false, // Ensure isQuiet is properly set
+        });
 
-      // Reset form
-      setNewTask({
-        title: "",
-        dueDate: null,
-        goalId: currentGoalId,
-        tags: [],
-        priority: "medium",
-        repeatPattern: null,
-        dependencies: [], // Reset dependencies
-      });
+        // Reset form
+        setNewTask({
+          title: "",
+          dueDate: null,
+          goalId: currentGoalId,
+          tags: [],
+          priority: "medium",
+          repeatPattern: null,
+          dependencies: [], // Reset dependencies
+          isQuiet: false, // Reset the quiet flag
+        });
 
-      setSuggestedTags([]);
-      setIsAddTaskDialogOpen(false);
+        setSuggestedTags([]);
+        setIsAddTaskDialogOpen(false);
+      } catch (error) {
+        console.error("Error creating task:", error);
+      }
     }
   };
 
@@ -334,14 +346,33 @@ export function TaskList() {
             )}
 
             {!isFocusMode && (
-              <Button
-                size="sm"
-                className="flex items-center gap-1"
-                onClick={() => setIsAddTaskDialogOpen(true)}
-              >
-                <Plus size={16} />
-                <span className="hidden md:inline">Add Task</span>
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-1"
+                  onClick={toggleQuietPanel}
+                >
+                  <Feather size={14} className="text-amber-500" />
+                  <span className="hidden md:inline">
+                    {showQuietPanel ? "Hide Quiet Tasks" : "Quiet Tasks"}
+                  </span>
+                  {!showQuietPanel && quietTasks.length > 0 && (
+                    <Badge variant="outline" className="ml-1">
+                      {quietTasks.length}
+                    </Badge>
+                  )}
+                </Button>
+
+                <Button
+                  size="sm"
+                  className="flex items-center gap-1"
+                  onClick={() => setIsAddTaskDialogOpen(true)}
+                >
+                  <Plus size={16} />
+                  <span className="hidden md:inline">Add Task</span>
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -381,18 +412,23 @@ export function TaskList() {
 
       <div className="flex-1 overflow-auto px-4 pb-4">
         {activeView === "list" || !currentGoalId ? (
-          <ul className="space-y-2">
-            {displayTasks.map((task) => (
-              <li key={task.id} className="border rounded-lg shadow-sm">
-                <TaskItem task={task} />
-              </li>
-            ))}
-            {displayTasks.length === 0 && (
-              <li className="text-center py-8 text-muted-foreground">
-                No tasks to display
-              </li>
-            )}
-          </ul>
+          <>
+            <ul className="space-y-2">
+              {displayTasks.map((task) => (
+                <li key={task.id} className="border rounded-lg shadow-sm">
+                  <TaskItem task={task} />
+                </li>
+              ))}
+              {displayTasks.length === 0 && (
+                <li className="text-center py-8 text-muted-foreground">
+                  No tasks to display
+                </li>
+              )}
+            </ul>
+
+            {/* Quiet Tasks Panel */}
+            <QuietTasksPanel />
+          </>
         ) : (
           <GraphView tasks={filteredTasks} />
         )}
@@ -516,6 +552,33 @@ export function TaskList() {
                   <SelectItem value="monthly">Monthly</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Quiet Task toggle */}
+            <div className="flex items-center space-x-2 pt-2">
+              <div className="flex-1">
+                <Label
+                  htmlFor="quiet-task-toggle"
+                  className="flex items-center cursor-pointer"
+                >
+                  <Feather className="h-4 w-4 mr-2 text-amber-500" />
+                  <span>Quiet Task</span>
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  For mindful, low-pressure intentions
+                </p>
+              </div>
+              <Switch
+                id="quiet-task-toggle"
+                checked={newTask.isQuiet || false}
+                onCheckedChange={(checked) =>
+                  setNewTask({
+                    ...newTask,
+                    isQuiet: checked,
+                    priority: checked ? "low" : newTask.priority,
+                  })
+                }
+              />
             </div>
 
             <div className="space-y-2">

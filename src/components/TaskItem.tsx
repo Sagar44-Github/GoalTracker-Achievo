@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import { Task } from "@/lib/db";
+import { Task, db } from "@/lib/db";
 import { useApp } from "@/context/AppContext";
 import { formatDate } from "@/lib/taskUtils";
 import {
@@ -14,6 +14,7 @@ import {
   AlertCircle,
   Tag,
   BarChart2,
+  Feather,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -41,6 +42,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { TaskRepetitionHistory } from "./TaskRepetitionHistory";
 import { toast } from "@/hooks/use-toast";
 
@@ -48,20 +50,34 @@ interface TaskItemProps {
   task: Task;
 }
 
+// Replace the updateTaskDirectly function with a simpler version that uses db.directTaskUpdate
+const updateTaskDirectly = async (task: Task): Promise<boolean> => {
+  try {
+    return await db.directTaskUpdate(task);
+  } catch (error) {
+    console.error("Direct update failed:", error);
+    return false;
+  }
+};
+
 export function TaskItem({ task }: TaskItemProps) {
-  const {
-    goals,
-    completeTask,
-    updateTask,
-    deleteTask,
-    archiveTask,
-    currentGoalId,
-    isFocusMode,
-    tasks,
-    isDailyThemeModeEnabled,
-    currentDayTheme,
-    isTaskMatchingCurrentTheme,
-  } = useApp();
+  // Get the context safely
+  const appContext = useApp();
+
+  // Safely destructure context with defaults
+  const goals = appContext?.goals || [];
+  const completeTask = appContext?.completeTask || (async () => {});
+  const updateTask = appContext?.updateTask || (async () => "");
+  const deleteTask = appContext?.deleteTask || (async () => {});
+  const archiveTask = appContext?.archiveTask || (async () => {});
+  const currentGoalId = appContext?.currentGoalId || null;
+  const isFocusMode = appContext?.isFocusMode || false;
+  const tasks = Array.isArray(appContext?.tasks) ? appContext.tasks : [];
+  const isDailyThemeModeEnabled = appContext?.isDailyThemeModeEnabled || false;
+  const currentDayTheme = appContext?.currentDayTheme;
+  const isTaskMatchingCurrentTheme =
+    appContext?.isTaskMatchingCurrentTheme || (() => false);
+  const refreshData = appContext?.refreshData || (async () => {});
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editedTask, setEditedTask] = useState<Task>(task);
@@ -72,6 +88,13 @@ export function TaskItem({ task }: TaskItemProps) {
 
   // Format due date
   const dueDateText = formatDate(task.dueDate);
+
+  // Update editedTask when task prop changes
+  useEffect(() => {
+    if (!isEditDialogOpen) {
+      setEditedTask(task);
+    }
+  }, [task, isEditDialogOpen]);
 
   // Determine priority styling
   const getPriorityColor = () => {
@@ -145,11 +168,20 @@ export function TaskItem({ task }: TaskItemProps) {
   };
 
   const handleEdit = () => {
+    // Make a fresh copy of the task to edit
+    console.log("Opening edit dialog for task:", task);
+
+    // Ensure all properties are properly copied and initialized
     setEditedTask({
       ...task,
-      dependencies: task.dependencies || [], // Ensure dependencies is initialized
+      dependencies: task.dependencies || [],
+      isQuiet: task.isQuiet || false,
+      description: task.description || "",
+      tags: task.tags || [],
     });
+
     setIsEditDialogOpen(true);
+    console.log("Edit dialog should now be open");
   };
 
   const handleSaveEdit = async () => {
@@ -170,17 +202,72 @@ export function TaskItem({ task }: TaskItemProps) {
         description: "Please wait while your changes are saved",
       });
 
-      // Update the task
-      await updateTask(editedTask);
+      // Explicitly handle isQuiet property
+      const isQuiet = editedTask.isQuiet === true;
+      console.log("Saving task with isQuiet value:", isQuiet);
 
-      // Close dialog first for better UX
-      setIsEditDialogOpen(false);
+      // Ensure all properties are properly set
+      const taskToSave: Task = {
+        ...editedTask,
+        // Ensure required properties have proper values
+        id: editedTask.id,
+        title: editedTask.title.trim(),
+        dueDate: editedTask.dueDate,
+        suggestedDueDate: editedTask.suggestedDueDate,
+        createdAt: editedTask.createdAt,
+        goalId: editedTask.goalId,
+        completed: editedTask.completed,
+        priority: editedTask.priority || "medium",
+        isArchived: editedTask.isArchived || false,
+        isQuiet: isQuiet,
+        repeatPattern: editedTask.repeatPattern || null,
+        completionTimestamp: editedTask.completionTimestamp || null,
+        dependencies: editedTask.dependencies || [],
+        tags: editedTask.tags || [],
+      };
 
-      // Success message
-      toast({
-        title: "Task updated",
-        description: "Task has been updated successfully",
-      });
+      // Try direct database update first - this is more reliable
+      try {
+        const success = await updateTaskDirectly(taskToSave);
+
+        if (success) {
+          // Close dialog first for better UX
+          setIsEditDialogOpen(false);
+
+          // Success message
+          toast({
+            title: "Task updated",
+            description: "Your changes have been saved successfully.",
+          });
+
+          // Refresh data to show updated tasks
+          if (refreshData) {
+            setTimeout(() => {
+              refreshData();
+            }, 100);
+          }
+        }
+      } catch (directError) {
+        console.error("Direct update failed:", directError);
+
+        // Fall back to context update method
+        try {
+          await updateTask(taskToSave);
+          setIsEditDialogOpen(false);
+
+          toast({
+            title: "Task updated",
+            description: "Your changes have been saved successfully.",
+          });
+        } catch (updateError) {
+          console.error("All update methods failed:", updateError);
+          toast({
+            title: "Error",
+            description: "Failed to update task. Please try again.",
+            variant: "destructive",
+          });
+        }
+      }
     } catch (error) {
       console.error("Failed to update task:", error);
       toast({
@@ -224,7 +311,7 @@ export function TaskItem({ task }: TaskItemProps) {
       <div
         id={`task-${task.id}`}
         className={cn(
-          "flex items-start gap-2",
+          "flex items-start gap-2 task-item p-2 rounded-md",
           task.completed && "opacity-60",
           matchesCurrentTheme && isDailyThemeModeEnabled && "theme-task"
         )}
@@ -306,6 +393,15 @@ export function TaskItem({ task }: TaskItemProps) {
 
               {/* Tags */}
               <div className="flex flex-wrap items-center gap-1 mt-1">
+                {task.isQuiet && (
+                  <Badge
+                    variant="outline"
+                    className="px-2 py-0 text-xs bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300 border-amber-200 dark:border-amber-800"
+                  >
+                    <Feather className="h-3 w-3 mr-1" />
+                    quiet
+                  </Badge>
+                )}
                 {task.tags.length > 0 && (
                   <>
                     {task.tags.map((tag) => (
@@ -409,7 +505,7 @@ export function TaskItem({ task }: TaskItemProps) {
           setIsEditDialogOpen(open);
         }}
       >
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md task-edit-dialog">
           <DialogHeader>
             <DialogTitle>Edit Task</DialogTitle>
             <DialogDescription>
@@ -539,6 +635,33 @@ export function TaskItem({ task }: TaskItemProps) {
                   <SelectItem value="monthly">Monthly</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Quiet Task Toggle */}
+            <div className="flex items-center justify-between space-x-2 pt-4 pb-2 border-t mt-4">
+              <div className="space-y-0.5">
+                <Label htmlFor="quiet-task" className="flex items-center">
+                  <Feather className="h-4 w-4 mr-2 text-amber-500" />
+                  Quiet Task
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  For mindful, low-pressure intentions
+                </p>
+              </div>
+              <Switch
+                id="quiet-task"
+                checked={editedTask.isQuiet === true}
+                onCheckedChange={(checked) => {
+                  console.log("Setting isQuiet to:", checked);
+                  setEditedTask({
+                    ...editedTask,
+                    isQuiet: checked,
+                    // If it's a quiet task, default to low priority
+                    priority: checked ? "low" : editedTask.priority,
+                  });
+                }}
+                className="bg-amber-100 data-[state=checked]:bg-amber-500"
+              />
             </div>
 
             {/* Display Dependencies */}

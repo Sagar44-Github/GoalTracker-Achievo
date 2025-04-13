@@ -52,7 +52,8 @@ export function TaskGraph({ goalId }: TaskGraphProps) {
   const tasksToNodes = useCallback(
     (tasks: Task[]): Node[] => {
       const filteredTasks = tasks.filter(
-        (task) => task.goalId === goalId && !task.isArchived
+        (task) =>
+          task.goalId === goalId && !task.isArchived && task.isQuiet !== true
       );
 
       console.log(`Converting ${filteredTasks.length} tasks to nodes`);

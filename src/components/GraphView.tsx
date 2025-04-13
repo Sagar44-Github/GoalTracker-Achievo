@@ -164,14 +164,18 @@ export function GraphView({ goalId }: { goalId: string }) {
   // Function to convert tasks to nodes
   const tasksToNodes = useCallback(
     (tasks: Task[]): Node[] => {
-      const filteredTasks = tasks.filter(
-        (task) => task.goalId === goalId && !task.isArchived
+      // Only include tasks for the current goal and non-quiet tasks
+      const goalTasks = tasks.filter(
+        (task) =>
+          (goalId ? task.goalId === goalId : true) &&
+          !task.isArchived &&
+          task.isQuiet !== true
       );
 
       // Use a grid layout for initial positioning
-      const columns = Math.ceil(Math.sqrt(filteredTasks.length));
+      const columns = Math.ceil(Math.sqrt(goalTasks.length));
 
-      return filteredTasks.map((task, index) => {
+      return goalTasks.map((task, index) => {
         const column = index % columns;
         const row = Math.floor(index / columns);
 
@@ -188,6 +192,7 @@ export function GraphView({ goalId }: { goalId: string }) {
               const depTask = tasks.find((t) => t.id === depId);
               return depTask && !depTask.completed;
             }),
+            isCriticalPath: false,
           },
           type: "taskNode",
         };

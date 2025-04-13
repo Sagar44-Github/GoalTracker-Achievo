@@ -292,3 +292,26 @@ body {
 .task-list-container {
   min-height: 0; /* Critical for flex containers to enable scrolling */
 }
+
+/* Add this to ensure proper dialog z-index */
+.task-edit-dialog {
+  z-index: 1000 !important;
+}
+
+/* Ensure elements are properly clickable */
+.dialog-overlay {
+  z-index: 999 !important;
+}
+
+/* Ensure task items are properly styled */
+.task-item {
+  transition: all 0.2s ease;
+}
+
+.task-item:hover {
+  background-color: rgba(0, 0, 0, 0.03);
+}
+
+.dark .task-item:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+}

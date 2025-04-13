@@ -60,12 +60,14 @@ export interface Task {
   completed: boolean;
   priority: "low" | "medium" | "high";
   isArchived: boolean;
+  isQuiet: boolean; // Flag for quiet tasks that appear in the Quiet Zone panel
   repeatPattern: RepeatPattern | null;
   completionTimestamp: number | null;
   dependencies?: string[]; // Task IDs that this task depends on
   xp?: number; // Experience points earned for completing this task
   timeSpent?: number; // Time spent on this task in milliseconds
   themeId?: string; // Associated daily theme ID
+  description?: string; // Task description or notes
 }
 
 export interface RepeatPattern {
@@ -102,32 +104,15 @@ const initDB = async () => {
     try {
       console.log("Initializing database...");
 
-      // Close any existing connections first to avoid blocking
-      const closeExisting = () => {
-        try {
-          const existingDBs = window.indexedDB.databases?.();
-          if (existingDBs && typeof existingDBs.then === "function") {
-            return existingDBs
-              .then((dbs) => {
-                dbs.forEach((db) => {
-                  if (db.name === "achievo-db") {
-                    console.log("Closing existing database connection");
-                    window.indexedDB.deleteDatabase(db.name);
-                  }
-                });
-              })
-              .catch((err) => {
-                console.warn("Could not close existing connections:", err);
-              });
-          }
-        } catch (e) {
-          console.warn("Database closing not supported:", e);
-        }
-        return Promise.resolve();
-      };
+      // First check if indexedDB is available
+      if (!window.indexedDB) {
+        throw new Error(
+          "Your browser doesn't support IndexedDB. Some features may not work."
+        );
+      }
 
-      // Wait for any potentially blocking connections to be closed
-      await closeExisting().catch(() => {}); // Ignore errors here
+      // Pre-close any existing connections to avoid blocking
+      await closeExistingConnections();
 
       dbPromise = openDB<AchievoDB>("achievo-db", 1, {
         upgrade(db) {
@@ -164,28 +149,17 @@ const initDB = async () => {
           }
           console.log("Database schema upgrade complete");
         },
-        blocked(e) {
-          console.warn(
-            "Database opening blocked - another tab has the database open",
-            e
-          );
-          // Try to close the blocking connection
-          window.setTimeout(() => {
-            alert(
-              "Database is blocked. Please close other tabs with this app open."
-            );
-          }, 1000);
+        blocked() {
+          console.warn("Database blocked - another connection is still open");
+          // Attempt to close any existing connections
+          closeExistingConnections();
         },
-        blocking(e) {
-          console.warn("This tab is blocking a database upgrade", e);
-          // Close gracefully if possible
+        blocking() {
+          console.warn("This connection is blocking a database upgrade");
+          // Close this connection to allow the upgrade to proceed
           if (dbPromise) {
-            dbPromise
-              .then((db) => {
-                db.close();
-                dbPromise = null;
-              })
-              .catch(() => {});
+            dbPromise.then((db) => db.close());
+            dbPromise = null;
           }
         },
         terminated(e) {
@@ -200,15 +174,7 @@ const initDB = async () => {
 
       // Attempt recovery by deleting and recreating the database
       try {
-        await new Promise((resolve, reject) => {
-          const deleteRequest = window.indexedDB.deleteDatabase("achievo-db");
-          deleteRequest.onsuccess = resolve;
-          deleteRequest.onerror = reject;
-        });
-        console.log("Database deleted for recovery");
-
-        // Try to initialize again after a short delay
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        await recoverDatabase();
         return initDB(); // Recursively try again
       } catch (recoveryError) {
         console.error("Recovery failed:", recoveryError);
@@ -219,6 +185,71 @@ const initDB = async () => {
     }
   }
   return dbPromise;
+};
+
+// Helper function to close existing connections
+const closeExistingConnections = async (): Promise<void> => {
+  try {
+    if (typeof window.indexedDB.databases === "function") {
+      const dbs = await window.indexedDB.databases();
+      const achievoDB = dbs.find((db) => db.name === "achievo-db");
+      if (achievoDB) {
+        console.log("Closing existing database connection");
+        // We can't directly close it, but we can force-delete and recreate it
+        await new Promise<void>((resolve, reject) => {
+          try {
+            // If we have an existing connection, close it
+            if (dbPromise) {
+              dbPromise
+                .then((db) => {
+                  db.close();
+                  dbPromise = null;
+                  resolve();
+                })
+                .catch((err) => {
+                  console.warn("Could not close existing connection:", err);
+                  resolve(); // Continue anyway
+                });
+            } else {
+              resolve();
+            }
+          } catch (e) {
+            console.warn("Error closing connection:", e);
+            resolve(); // Continue anyway
+          }
+        });
+      }
+    }
+  } catch (e) {
+    console.warn("Database closing not supported:", e);
+  }
+};
+
+// Helper function to recover database by deleting and recreating
+const recoverDatabase = async (): Promise<void> => {
+  try {
+    console.log("Attempting database recovery...");
+    return new Promise<void>((resolve, reject) => {
+      try {
+        const deleteRequest = window.indexedDB.deleteDatabase("achievo-db");
+        deleteRequest.onsuccess = () => {
+          console.log("Database deleted for recovery");
+          setTimeout(resolve, 500); // Wait before trying to recreate
+        };
+        deleteRequest.onerror = (event) => {
+          console.error("Could not delete database for recovery:", event);
+          reject(new Error("Failed to delete database for recovery"));
+        };
+      } catch (e) {
+        console.error("Error in recovery:", e);
+        reject(e);
+      }
+    });
+  } catch (e) {
+    throw new Error(
+      `Recovery failed: ${e instanceof Error ? e.message : String(e)}`
+    );
+  }
 };
 
 // Database API
@@ -358,6 +389,7 @@ export const db = {
   async updateTask(task: Task): Promise<string> {
     try {
       const db = await initDB();
+      console.log("DB instance ready for updateTask:", !!db);
 
       // Get the old task to compare changes
       const oldTask = await this.getTask(task.id);
@@ -365,13 +397,37 @@ export const db = {
         console.warn("Task not found when updating:", task.id);
       }
 
+      // Ensure the task has all required properties
+      const validatedTask: Task = {
+        id: task.id,
+        title: task.title || "",
+        dueDate: task.dueDate,
+        suggestedDueDate: task.suggestedDueDate,
+        createdAt: task.createdAt,
+        goalId: task.goalId,
+        tags: Array.isArray(task.tags) ? task.tags : [],
+        completed: Boolean(task.completed),
+        priority: task.priority || "medium",
+        isArchived: Boolean(task.isArchived),
+        isQuiet: Boolean(task.isQuiet),
+        repeatPattern: task.repeatPattern,
+        completionTimestamp: task.completionTimestamp,
+        dependencies: Array.isArray(task.dependencies) ? task.dependencies : [],
+        themeId: task.themeId,
+        description: task.description || "",
+      };
+
+      console.log("Validated task for update:", validatedTask);
+
       // Update the task with retry mechanism
       let attempts = 0;
       const maxAttempts = 3;
 
       while (attempts < maxAttempts) {
         try {
-          await db.put("tasks", task);
+          console.log(`Update attempt ${attempts + 1} for task ${task.id}`);
+          await db.put("tasks", validatedTask);
+          console.log(`Task ${task.id} updated successfully`);
           break; // Break out of loop if successful
         } catch (error) {
           attempts++;
@@ -729,6 +785,7 @@ export const db = {
           completed: true,
           priority: "high",
           isArchived: false,
+          isQuiet: false,
           repeatPattern: { type: "daily", interval: 1 },
           completionTimestamp: Date.now() - 4 * 24 * 60 * 60 * 1000,
           xp: 50,
@@ -749,6 +806,7 @@ export const db = {
           completed: false,
           priority: "medium",
           isArchived: false,
+          isQuiet: false,
           repeatPattern: null,
           completionTimestamp: null,
           xp: 75,
@@ -768,6 +826,7 @@ export const db = {
           completed: false,
           priority: "low",
           isArchived: false,
+          isQuiet: false,
           repeatPattern: null,
           completionTimestamp: null,
           xp: 50,
@@ -787,6 +846,7 @@ export const db = {
           completed: false,
           priority: "high",
           isArchived: false,
+          isQuiet: false,
           repeatPattern: null,
           completionTimestamp: null,
           dependencies: ["task-2"],
@@ -804,6 +864,7 @@ export const db = {
           completed: true,
           priority: "medium",
           isArchived: false,
+          isQuiet: false,
           repeatPattern: { type: "daily", interval: 1 },
           completionTimestamp: Date.now() - 1 * 24 * 60 * 60 * 1000, // Completed yesterday
           xp: 30,
@@ -819,6 +880,7 @@ export const db = {
           completed: false,
           priority: "high",
           isArchived: false,
+          isQuiet: false,
           repeatPattern: { type: "weekly", interval: 1 },
           completionTimestamp: null,
           xp: 50,
@@ -834,6 +896,7 @@ export const db = {
           completed: true,
           priority: "medium",
           isArchived: false,
+          isQuiet: false,
           repeatPattern: { type: "weekly", interval: 1 },
           completionTimestamp: Date.now() - 2 * 24 * 60 * 60 * 1000, // Completed 2 days ago
           xp: 80,
@@ -940,6 +1003,157 @@ export const db = {
     } catch (error) {
       console.error("Failed to clear database:", error);
       throw error;
+    }
+  },
+
+  /**
+   * Diagnostic function to check database health
+   * Returns information about the database state
+   */
+  async checkDatabaseHealth(): Promise<{
+    healthy: boolean;
+    message: string;
+    details: any;
+  }> {
+    try {
+      // Check if we can initialize the database
+      const db = await initDB();
+
+      // Try to read goals and tasks
+      const goals = await db.getAll("goals");
+      const tasks = await db.getAll("tasks");
+
+      // Try a simple write operation
+      const testTask: Task = {
+        id: "test-" + Date.now(),
+        title: "Database test task",
+        dueDate: null,
+        suggestedDueDate: null,
+        createdAt: Date.now(),
+        goalId: null,
+        tags: [],
+        completed: false,
+        priority: "medium",
+        isArchived: false,
+        isQuiet: false,
+        repeatPattern: null,
+        completionTimestamp: null,
+        dependencies: [],
+        description: "This is a test task to verify database write operations",
+      };
+
+      // Add the test task
+      await db.add("tasks", testTask);
+
+      // Verify we can read it back
+      const verifyTask = await db.get("tasks", testTask.id);
+
+      // Clean up test task
+      if (verifyTask) {
+        await db.delete("tasks", testTask.id);
+      }
+
+      // Check results
+      const healthy = Boolean(verifyTask && verifyTask.id === testTask.id);
+
+      return {
+        healthy,
+        message: healthy
+          ? "Database is operating normally"
+          : "Database operations are failing",
+        details: {
+          goalsCount: goals.length,
+          tasksCount: tasks.length,
+          testTaskRetrieved: Boolean(verifyTask),
+          dbInstance: Boolean(db),
+        },
+      };
+    } catch (error) {
+      console.error("Database health check failed:", error);
+      return {
+        healthy: false,
+        message: "Database health check failed with error",
+        details: {
+          error: error instanceof Error ? error.message : String(error),
+        },
+      };
+    }
+  },
+
+  /**
+   * Direct update method for tasks that bypasses most error checks
+   * This is used as a reliable fallback for task editing
+   */
+  async directTaskUpdate(task: Task): Promise<boolean> {
+    try {
+      // Validate required fields
+      if (!task.id) {
+        throw new Error("Task ID is required");
+      }
+
+      console.log(
+        "Direct task update for task:",
+        task.id,
+        "isQuiet:",
+        task.isQuiet
+      );
+
+      // Open database and update in a single transaction
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open("achievo-db", 1);
+
+        request.onerror = () => {
+          reject(new Error("Failed to open database"));
+        };
+
+        request.onsuccess = () => {
+          const db = request.result;
+          const transaction = db.transaction(["tasks"], "readwrite");
+          const store = transaction.objectStore("tasks");
+
+          // Ensure the task has all required properties with valid values
+          const validTask: Task = {
+            id: task.id,
+            title: task.title || "",
+            dueDate: task.dueDate,
+            suggestedDueDate: task.suggestedDueDate,
+            createdAt: task.createdAt || Date.now(),
+            goalId: task.goalId,
+            tags: Array.isArray(task.tags) ? task.tags : [],
+            completed: Boolean(task.completed),
+            priority: task.priority || "medium",
+            isArchived: Boolean(task.isArchived),
+            isQuiet: Boolean(task.isQuiet), // Explicitly cast to boolean
+            repeatPattern: task.repeatPattern || null,
+            completionTimestamp: task.completionTimestamp,
+            dependencies: Array.isArray(task.dependencies)
+              ? task.dependencies
+              : [],
+            description: task.description || "",
+          };
+
+          console.log("Validated task for direct update:", validTask);
+
+          const updateRequest = store.put(validTask);
+
+          updateRequest.onsuccess = () => {
+            console.log("Task updated directly:", task.id);
+            resolve(true);
+          };
+
+          updateRequest.onerror = (error) => {
+            console.error("Failed to update task directly:", error);
+            reject(new Error("Failed to update task"));
+          };
+
+          transaction.oncomplete = () => {
+            db.close();
+          };
+        };
+      });
+    } catch (error) {
+      console.error("Direct task update failed:", error);
+      return false;
     }
   },
 };
