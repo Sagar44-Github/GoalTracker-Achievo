@@ -111,7 +111,11 @@ function GoalLevelDisplay({ goal }: { goal: any }) {
 }
 
 export function GamificationView() {
-  const { goals, toggleGamificationView, forceCheckBadges } = useApp();
+  const appContext = useApp();
+  const goals = appContext?.goals || [];
+  const toggleGamificationView =
+    appContext?.toggleGamificationView || (() => {});
+  const forceCheckBadges = appContext?.forceCheckBadges || (async () => {});
   const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>("badges");
   const [isRefreshing, setIsRefreshing] = useState(false);

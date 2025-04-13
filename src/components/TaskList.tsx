@@ -33,8 +33,9 @@ import { GraphView } from "./GraphView";
 import { QuietTasksPanel } from "./QuietTasksPanel";
 import { Switch } from "@/components/ui/switch";
 
-// Define the SpeechRecognition type to avoid TypeScript errors
-interface SpeechRecognition extends EventTarget {
+// Before declaring it in global scope, check if it's already declared
+// Use a different name for the local interface
+interface TaskListSpeechRecognition extends EventTarget {
   continuous: boolean;
   interimResults: boolean;
   lang: string;
@@ -60,10 +61,11 @@ interface SpeechRecognitionErrorEvent extends Event {
   error: string;
 }
 
+// Only add to global Window interface if properties don't already exist
 declare global {
   interface Window {
-    SpeechRecognition?: new () => SpeechRecognition;
-    webkitSpeechRecognition?: new () => SpeechRecognition;
+    SpeechRecognition?: new () => TaskListSpeechRecognition;
+    webkitSpeechRecognition?: new () => TaskListSpeechRecognition;
   }
 }
 
@@ -430,7 +432,7 @@ export function TaskList() {
             <QuietTasksPanel />
           </>
         ) : (
-          <GraphView tasks={filteredTasks} />
+          <GraphView goalId={currentGoalId || ""} />
         )}
       </div>
 

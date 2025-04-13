@@ -41,7 +41,9 @@ declare global {
 }
 
 export function CommandInput() {
-  const { executeCommand, isFocusMode } = useApp();
+  const appContext = useApp();
+  const executeCommand = appContext?.executeCommand;
+  const isFocusMode = appContext?.isFocusMode;
   const [command, setCommand] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -122,34 +124,23 @@ export function CommandInput() {
   };
 
   const handleCommandExecution = async (cmd: string) => {
-    if (!cmd.trim()) return;
+    if (!cmd.trim() || !executeCommand) return;
 
     setIsProcessing(true);
-
     try {
       const result = await executeCommand(cmd);
 
+      // If command was successful, clear the input
       if (result.success) {
-        toast({
-          title: "Command Executed",
-          description: result.message,
-        });
-      } else {
-        toast({
-          title: "Command Error",
-          description: result.message,
-          variant: "destructive",
-        });
+        setCommand("");
       }
+
+      // If there was a message, we could display it (e.g. in a toast)
+      // but for now we'll just log it
+      console.log(`Command result: ${result.message}`);
     } catch (error) {
-      console.error("Failed to execute command:", error);
-      toast({
-        title: "Command Failed",
-        description: "An error occurred while executing your command.",
-        variant: "destructive",
-      });
+      console.error("Command execution error:", error);
     } finally {
-      setCommand("");
       setIsProcessing(false);
     }
   };

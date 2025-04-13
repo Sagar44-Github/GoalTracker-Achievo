@@ -18,13 +18,12 @@ import { Badge } from "@/components/ui/badge";
 import { X, PlusCircle, Palette } from "lucide-react";
 
 export function DailyThemeSettings() {
-  const {
-    dailyThemes,
-    isDailyThemeModeEnabled,
-    toggleDailyThemeMode,
-    updateDailyTheme,
-    currentDayTheme,
-  } = useApp();
+  const appContext = useApp();
+  const dailyThemes = appContext?.dailyThemes || [];
+  const isDailyThemeModeEnabled = appContext?.isDailyThemeModeEnabled || false;
+  const toggleDailyThemeMode = appContext?.toggleDailyThemeMode || (() => {});
+  const updateDailyTheme = appContext?.updateDailyTheme || (async () => "");
+  const currentDayTheme = appContext?.currentDayTheme || null;
 
   const [editingTheme, setEditingTheme] = useState<DailyTheme | null>(null);
   const [newTag, setNewTag] = useState<string>("");
@@ -145,10 +144,10 @@ export function DailyThemeSettings() {
             }`}
             style={{
               borderColor: theme.color,
-              ring:
+              boxShadow:
                 isDayActive(theme.day) && isDailyThemeModeEnabled
-                  ? theme.color
-                  : "transparent",
+                  ? `0 0 0 2px ${theme.color}`
+                  : "none",
             }}
           >
             <CardHeader className="pb-2">

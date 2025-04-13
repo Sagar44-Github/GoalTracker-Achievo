@@ -10,7 +10,10 @@ import {
 } from "@/components/ui/card";
 
 export function GoalInactivitySettings() {
-  const { inactivityThreshold, setInactivityThreshold } = useApp();
+  const appContext = useApp();
+  const inactivityThreshold = appContext?.inactivityThreshold || 10;
+  const setInactivityThreshold =
+    appContext?.setInactivityThreshold || (() => {});
 
   return (
     <Card>

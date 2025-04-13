@@ -21,23 +21,21 @@ interface GoalLevelDisplayProps {
 }
 
 export function GoalLevelDisplay({ goal }: GoalLevelDisplayProps) {
-  const { refreshData } = useApp();
+  const appContext = useApp();
+  const refreshData = appContext?.refreshData;
+
   const [levelInfo, setLevelInfo] = useState({
     level: goal.level || 1,
     currentLevelXP: 0,
     nextLevelXP: 100,
     xpProgress: 0,
   });
-  const [canPrestige, setCanPrestige] = useState(false);
   const [xpAnimValue, setXpAnimValue] = useState(0);
+  const [canPrestige, setCanPrestige] = useState(false);
 
   useEffect(() => {
-    // Calculate level info
-    const currentXP = goal.xp || 0;
-    const info = calculateLevel(currentXP);
+    const info = calculateLevel(goal.xp || 0);
     setLevelInfo(info);
-
-    // Check if can prestige (at max level with 100% XP)
     setCanPrestige(info.level === 10 && info.xpProgress >= 1);
 
     // Animate XP bar filling
@@ -59,7 +57,9 @@ export function GoalLevelDisplay({ goal }: GoalLevelDisplayProps) {
         variant: "default",
       });
 
-      await refreshData();
+      if (refreshData) {
+        await refreshData();
+      }
     } else {
       toast({
         title: "Cannot Prestige Yet",

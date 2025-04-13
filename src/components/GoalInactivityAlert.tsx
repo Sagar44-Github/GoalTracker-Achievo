@@ -17,16 +17,21 @@ export function GoalInactivityAlert({
   onClose,
   inactiveDays,
 }: GoalInactivityAlertProps) {
-  const { updateGoal, deleteGoal } = useApp();
+  const appContext = useApp();
+  const updateGoal = appContext?.updateGoal;
+  const deleteGoal = appContext?.deleteGoal;
 
   // Handle reviving the goal
   const handleRevive = async () => {
     try {
+      if (!updateGoal) return;
+
+      // Update the goal to mark it as active again
       await updateGoal({
         ...goal,
         isPaused: false,
         isArchived: false,
-        lastActiveDate: Date.now(),
+        lastActiveDate: Date.now(), // Mark as active now
       });
 
       toast({
@@ -36,7 +41,7 @@ export function GoalInactivityAlert({
 
       onClose();
     } catch (error) {
-      console.error("Error reviving goal:", error);
+      console.error("Failed to revive goal:", error);
       toast({
         title: "Error",
         description: "Failed to revive goal.",
@@ -48,6 +53,9 @@ export function GoalInactivityAlert({
   // Handle pausing the goal
   const handlePause = async () => {
     try {
+      if (!updateGoal) return;
+
+      // Update the goal to pause it
       await updateGoal({
         ...goal,
         isPaused: true,
@@ -61,7 +69,7 @@ export function GoalInactivityAlert({
 
       onClose();
     } catch (error) {
-      console.error("Error pausing goal:", error);
+      console.error("Failed to pause goal:", error);
       toast({
         title: "Error",
         description: "Failed to pause goal.",
@@ -73,11 +81,10 @@ export function GoalInactivityAlert({
   // Handle archiving the goal
   const handleArchive = async () => {
     try {
-      await updateGoal({
-        ...goal,
-        isArchived: true,
-        isPaused: false,
-      });
+      if (!deleteGoal) return;
+
+      // Delete the goal
+      await deleteGoal(goal.id);
 
       toast({
         title: "Goal archived",
@@ -86,7 +93,7 @@ export function GoalInactivityAlert({
 
       onClose();
     } catch (error) {
-      console.error("Error archiving goal:", error);
+      console.error("Failed to archive goal:", error);
       toast({
         title: "Error",
         description: "Failed to archive goal.",

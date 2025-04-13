@@ -85,6 +85,7 @@ export const addPrebuiltData = async (): Promise<void> => {
       completed: false,
       priority: "high",
       isArchived: false,
+      isQuiet: false,
       repeatPattern: { type: "weekly", interval: 1 },
       completionTimestamp: null,
       xp: 60,
@@ -100,6 +101,7 @@ export const addPrebuiltData = async (): Promise<void> => {
       completed: true,
       priority: "medium",
       isArchived: false,
+      isQuiet: false,
       repeatPattern: { type: "daily", interval: 1 },
       completionTimestamp: Date.now() - 1 * 24 * 60 * 60 * 1000,
       xp: 40,
@@ -116,6 +118,7 @@ export const addPrebuiltData = async (): Promise<void> => {
       completed: false,
       priority: "low",
       isArchived: false,
+      isQuiet: false,
       repeatPattern: null,
       completionTimestamp: null,
       xp: 50,
@@ -133,6 +136,7 @@ export const addPrebuiltData = async (): Promise<void> => {
       completed: false,
       priority: "medium",
       isArchived: false,
+      isQuiet: false,
       repeatPattern: null,
       completionTimestamp: null,
       xp: 80,
@@ -148,6 +152,7 @@ export const addPrebuiltData = async (): Promise<void> => {
       completed: false,
       priority: "high",
       isArchived: false,
+      isQuiet: false,
       repeatPattern: null,
       completionTimestamp: null,
       xp: 40,
@@ -163,6 +168,7 @@ export const addPrebuiltData = async (): Promise<void> => {
       completed: true,
       priority: "medium",
       isArchived: false,
+      isQuiet: false,
       repeatPattern: { type: "weekly", interval: 1 },
       completionTimestamp: Date.now() - 2 * 24 * 60 * 60 * 1000,
       xp: 35,
@@ -180,6 +186,7 @@ export const addPrebuiltData = async (): Promise<void> => {
       completed: false,
       priority: "high",
       isArchived: false,
+      isQuiet: false,
       repeatPattern: { type: "weekly", interval: 1 },
       completionTimestamp: null,
       xp: 60,
@@ -195,6 +202,7 @@ export const addPrebuiltData = async (): Promise<void> => {
       completed: false,
       priority: "medium",
       isArchived: false,
+      isQuiet: false,
       repeatPattern: { type: "monthly", interval: 1 },
       completionTimestamp: null,
       xp: 70,
@@ -210,6 +218,7 @@ export const addPrebuiltData = async (): Promise<void> => {
       completed: true,
       priority: "high",
       isArchived: false,
+      isQuiet: false,
       repeatPattern: { type: "daily", interval: 1 },
       completionTimestamp: Date.now() - 1 * 24 * 60 * 60 * 1000,
       xp: 30,
@@ -228,6 +237,7 @@ export const addPrebuiltData = async (): Promise<void> => {
       completed: false,
       priority: "high",
       isArchived: false,
+      isQuiet: false,
       repeatPattern: { type: "weekly", interval: 1 },
       completionTimestamp: null,
       xp: 25,
@@ -243,6 +253,7 @@ export const addPrebuiltData = async (): Promise<void> => {
       completed: false,
       priority: "medium",
       isArchived: false,
+      isQuiet: false,
       repeatPattern: null,
       completionTimestamp: null,
       xp: 30,
@@ -402,6 +413,7 @@ export const addInactivityDemoData = async (): Promise<void> => {
       completed: true,
       priority: "medium",
       isArchived: false,
+      isQuiet: false,
       repeatPattern: null,
       completionTimestamp: timestamp - 1 * dayInMs,
       xp: 30,
@@ -417,6 +429,7 @@ export const addInactivityDemoData = async (): Promise<void> => {
       completed: false,
       priority: "high",
       isArchived: false,
+      isQuiet: false,
       repeatPattern: null,
       completionTimestamp: null,
       xp: 45,
@@ -436,6 +449,7 @@ export const addInactivityDemoData = async (): Promise<void> => {
       completed: false,
       priority: "medium",
       isArchived: false,
+      isQuiet: false,
       repeatPattern: null,
       completionTimestamp: null,
       xp: 35,
@@ -582,6 +596,7 @@ export const addThemeBasedTasks = async (): Promise<void> => {
         completed: false,
         priority: "high",
         isArchived: false,
+        isQuiet: false,
         repeatPattern: { type: "weekly", interval: 1 },
         completionTimestamp: null,
         themeId: mondayTheme.id,
@@ -597,6 +612,7 @@ export const addThemeBasedTasks = async (): Promise<void> => {
         completed: true,
         priority: "medium",
         isArchived: false,
+        isQuiet: false,
         repeatPattern: { type: "daily", interval: 1 },
         completionTimestamp: Date.now() - 1 * 24 * 60 * 60 * 1000,
         themeId: mondayTheme.id,
@@ -605,10 +621,7 @@ export const addThemeBasedTasks = async (): Promise<void> => {
 
     // Add Monday tasks
     for (const task of mondayTasks) {
-      const exists = await db.getTask(task.id);
-      if (!exists) {
-        await db.addTask(task);
-      }
+      await db.addTask(task);
     }
   }
 
@@ -627,6 +640,7 @@ export const addThemeBasedTasks = async (): Promise<void> => {
         completed: false,
         priority: "medium",
         isArchived: false,
+        isQuiet: false,
         repeatPattern: null,
         completionTimestamp: null,
         themeId: tuesdayTheme.id,
@@ -642,6 +656,7 @@ export const addThemeBasedTasks = async (): Promise<void> => {
         completed: false,
         priority: "low",
         isArchived: false,
+        isQuiet: false,
         repeatPattern: null,
         completionTimestamp: null,
         themeId: tuesdayTheme.id,
@@ -650,10 +665,7 @@ export const addThemeBasedTasks = async (): Promise<void> => {
 
     // Add Tuesday tasks
     for (const task of tuesdayTasks) {
-      const exists = await db.getTask(task.id);
-      if (!exists) {
-        await db.addTask(task);
-      }
+      await db.addTask(task);
     }
   }
 
@@ -672,6 +684,7 @@ export const addThemeBasedTasks = async (): Promise<void> => {
         completed: false,
         priority: "high",
         isArchived: false,
+        isQuiet: false,
         repeatPattern: { type: "weekly", interval: 1 },
         completionTimestamp: null,
         themeId: wednesdayTheme.id,
@@ -687,6 +700,7 @@ export const addThemeBasedTasks = async (): Promise<void> => {
         completed: false,
         priority: "medium",
         isArchived: false,
+        isQuiet: false,
         repeatPattern: null,
         completionTimestamp: null,
         themeId: wednesdayTheme.id,
@@ -695,20 +709,15 @@ export const addThemeBasedTasks = async (): Promise<void> => {
 
     // Add Wednesday tasks
     for (const task of wednesdayTasks) {
-      const exists = await db.getTask(task.id);
-      if (!exists) {
-        await db.addTask(task);
-      }
+      await db.addTask(task);
     }
   }
 
-  // Create a few completed tasks to show in the theme stats
-  const now = Date.now();
+  // Also add some completed tasks for each theme to provide history
   const completedThemeTasks: Task[] = [];
-
-  // Add completed tasks for all themes to populate the statistics
   themes.forEach((theme) => {
-    for (let i = 1; i <= 3; i++) {
+    for (let i = 1; i <= 5; i++) {
+      const now = Date.now();
       const daysAgo = Math.floor(Math.random() * 14) + 1; // 1-14 days ago
 
       completedThemeTasks.push({
@@ -729,6 +738,7 @@ export const addThemeBasedTasks = async (): Promise<void> => {
           | "medium"
           | "high",
         isArchived: false,
+        isQuiet: false,
         repeatPattern: null,
         completionTimestamp: now - daysAgo * 24 * 60 * 60 * 1000,
         themeId: theme.id,

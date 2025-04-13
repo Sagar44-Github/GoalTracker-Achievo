@@ -4,7 +4,10 @@ import { useApp } from "@/context/AppContext";
 import { GoalInactivityAlert } from "./GoalInactivityAlert";
 
 export function GoalInactivityAlerts() {
-  const { inactiveGoals, dismissInactiveGoal, inactivityThreshold } = useApp();
+  const appContext = useApp();
+  const inactiveGoals = appContext?.inactiveGoals || [];
+  const dismissInactiveGoal = appContext?.dismissInactiveGoal || (() => {});
+  const inactivityThreshold = appContext?.inactivityThreshold || 10;
 
   if (inactiveGoals.length === 0) {
     return null;

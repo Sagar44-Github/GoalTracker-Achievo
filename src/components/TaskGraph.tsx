@@ -33,7 +33,9 @@ const nodeTypes = {
 };
 
 export function TaskGraph({ goalId }: TaskGraphProps) {
-  const { tasks, updateTask } = useApp();
+  const appContext = useApp();
+  const tasks = appContext?.tasks || [];
+  const updateTask = appContext?.updateTask;
 
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
@@ -165,7 +167,7 @@ export function TaskGraph({ goalId }: TaskGraphProps) {
       );
 
       // Update the task with the new dependency
-      if (connection.source && connection.target) {
+      if (connection.source && connection.target && updateTask) {
         const sourceTask = tasks.find((task) => task.id === connection.source);
         const targetTask = tasks.find((task) => task.id === connection.target);
 
@@ -241,6 +243,8 @@ export function TaskGraph({ goalId }: TaskGraphProps) {
   // Handle edge deletion - remove the dependency
   const onEdgeDelete = useCallback(
     async (edge: Edge) => {
+      if (!updateTask) return;
+
       const targetTask = tasks.find((task) => task.id === edge.target);
       if (targetTask && targetTask.dependencies) {
         const updatedTask = {

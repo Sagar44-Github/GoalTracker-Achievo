@@ -17,6 +17,7 @@ import { getInactiveGoals } from "@/lib/goalUtils";
 // Define the type for our context
 interface AppContextType {
   goals: (Goal & { stats: any })[];
+  tasks: Task[];
   filteredTasks: Task[];
   quietTasks: Task[];
   showQuietPanel: boolean;
@@ -654,16 +655,17 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const completeTask = async (id: string): Promise<void> => {
     try {
       // Get task with retry logic
-      let task = null;
+      let task: Task | null = null;
       let retries = 0;
       const maxRetries = 3;
 
       while (!task && retries < maxRetries) {
         try {
-          task = await db.getTask(id);
-          if (!task) {
+          const fetchedTask = await db.getTask(id);
+          if (!fetchedTask) {
             throw new Error(`Task not found: ${id}`);
           }
+          task = fetchedTask;
         } catch (err) {
           retries++;
           if (retries >= maxRetries) {
@@ -688,7 +690,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       const isCompleted = !task.completed;
 
       // Toggle completion status
-      const updatedTask = {
+      const updatedTask: Task = {
         ...task,
         completed: isCompleted,
         completionTimestamp: isCompleted ? now : null,
@@ -734,13 +736,17 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
       // If the task is completed, apply the gamification effects
       if (isCompleted) {
-        const xpEarned = await applyTaskCompletionXP(updatedTask);
+        try {
+          const xpEarned = await applyTaskCompletionXP(task.id);
 
-        // Show a toast notification with XP earned
-        toast({
-          title: `Task completed!`,
-          description: `You earned ${xpEarned} XP for completing "${task.title}"`,
-        });
+          // Show a toast notification with XP earned
+          toast({
+            title: `Task completed!`,
+            description: `You earned ${xpEarned} XP for completing "${task.title}"`,
+          });
+        } catch (error) {
+          console.error("Error applying XP:", error);
+        }
 
         // If the task is a repeating task, create the next occurrence
         if (
@@ -752,7 +758,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           // Create the next occurrence in a separate async operation
           setTimeout(async () => {
             try {
-              await createNextOccurrence(task, new Date(now));
+              await createNextOccurrence(task as Task, new Date(now));
               // Simple refresh without debouncing
               await refreshData();
             } catch (error) {
@@ -831,6 +837,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       completed: false,
       priority: task.priority,
       isArchived: false,
+      isQuiet: task.isQuiet, // Include isQuiet property
       repeatPattern: task.repeatPattern,
       completionTimestamp: null,
       dependencies: task.dependencies || [],
@@ -905,7 +912,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           if (focusTimerInterval) {
             clearInterval(focusTimerInterval);
           }
-          setFocusMode(false);
+          setIsFocusMode(false);
 
           // Show completion notification
           toast({
@@ -936,28 +943,20 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const exitFocusMode = () => {
+    // Clear the focus mode state
     setIsFocusMode(false);
-
-    // Clear timer
-    if (focusTimerInterval) {
-      clearInterval(focusTimerInterval);
-      setFocusTimerInterval(null);
-    }
     setFocusTimer(null);
 
-    // Remove focus mode class
-    document.documentElement.classList.remove("focus-mode");
-
-    // Reset to standard task filtering
-    applyTaskFilter();
-
-    // Play a sound to indicate focus mode has ended
-    try {
-      const audio = new Audio("/focus-end.mp3");
-      audio.play().catch((e) => console.log("Audio play failed:", e));
-    } catch (e) {
-      console.log("Audio not supported:", e);
+    // Clear interval if running
+    if (focusTimerInterval) {
+      clearInterval(focusTimerInterval);
     }
+
+    // Show completion notification
+    toast({
+      title: "Focus mode exited",
+      description: "You've exited focus mode",
+    });
   };
 
   // Clean up timer on unmount
@@ -995,7 +994,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     if (addMatch) {
       const title = addMatch[1].trim();
       const dueDate = addMatch[2] ? parseDateExpression(addMatch[2]) : null;
-      let goalId = null;
+      let goalId: string | null = null;
 
       if (addMatch[3]) {
         // Find the goal by title
@@ -1202,7 +1201,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
       for (const goal of allGoals) {
         const goalTasks = allTasks.filter((task) => task.goalId === goal.id);
-        const earnedBadges = await checkEarnedBadges(goal.id, goalTasks);
+        const earnedBadges = await checkEarnedBadges(goal.id);
 
         // Update goal with badges if found
         if (earnedBadges.length > 0) {
@@ -1411,7 +1410,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       updateDailyTheme: async () => "",
       getTasksMatchingCurrentTheme: () => [],
       isTaskMatchingCurrentTheme: () => false,
-      toggleQuietPanel: () => {},
     };
   }
 
