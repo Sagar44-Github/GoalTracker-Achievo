@@ -58,6 +58,9 @@ export function TaskItem({ task }: TaskItemProps) {
     currentGoalId,
     isFocusMode,
     tasks,
+    isDailyThemeModeEnabled,
+    currentDayTheme,
+    isTaskMatchingCurrentTheme,
   } = useApp();
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -84,6 +87,10 @@ export function TaskItem({ task }: TaskItemProps) {
     }
   };
 
+  // Check if task matches current theme
+  const matchesCurrentTheme =
+    isDailyThemeModeEnabled && isTaskMatchingCurrentTheme(task);
+
   const handleComplete = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -91,12 +98,6 @@ export function TaskItem({ task }: TaskItemProps) {
     if (processing) return; // Prevent multiple clicks
 
     setProcessing(true);
-    console.log(
-      "Checkbox clicked for task:",
-      task.id,
-      "Current status:",
-      task.completed
-    );
 
     try {
       // Check if this task has uncompleted dependencies
@@ -121,27 +122,10 @@ export function TaskItem({ task }: TaskItemProps) {
         }
       }
 
-      // Simple non-blocking visual feedback
-      // Show task as toggled even before the database operation completes
-      const localDiv = document.getElementById(`task-checkbox-${task.id}`);
-      if (localDiv) {
-        if (!task.completed) {
-          localDiv.classList.add("bg-achievo-purple", "border-achievo-purple");
-        } else {
-          localDiv.classList.remove(
-            "bg-achievo-purple",
-            "border-achievo-purple"
-          );
-        }
-      }
-
       // Call the completeTask function
       await completeTask(task.id);
-      console.log("Task completion toggled successfully");
       setRetryCount(0); // Reset retry count on success
     } catch (error) {
-      console.error("Error completing task:", error);
-
       // Try to retry a few times before giving up
       if (retryCount < MAX_RETRIES) {
         setRetryCount((prev) => prev + 1);
@@ -154,11 +138,7 @@ export function TaskItem({ task }: TaskItemProps) {
         return;
       }
 
-      toast({
-        title: "Error",
-        description: "Could not complete the task. Please try again.",
-        variant: "destructive",
-      });
+      // Silently handle error
     } finally {
       setProcessing(false);
     }
@@ -242,7 +222,24 @@ export function TaskItem({ task }: TaskItemProps) {
   return (
     <>
       <div
-        className={cn("flex items-start gap-2", task.completed && "opacity-60")}
+        id={`task-${task.id}`}
+        className={cn(
+          "flex items-start gap-2",
+          task.completed && "opacity-60",
+          matchesCurrentTheme && isDailyThemeModeEnabled && "theme-task"
+        )}
+        style={
+          matchesCurrentTheme && currentDayTheme
+            ? {
+                borderLeft: `3px solid ${
+                  currentDayTheme.color || "var(--border)"
+                }`,
+                paddingLeft: "8px",
+                borderRadius: "4px",
+                background: `${currentDayTheme.color}10`, // 10% opacity of theme color
+              }
+            : undefined
+        }
       >
         {/* Checkbox - Make larger in focus mode */}
         <div

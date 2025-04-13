@@ -56,9 +56,15 @@ export const getTasksForAnalysis = async (): Promise<{
   tasksCompletedByDay: { date: string; count: number }[];
   tasksCompletedByHour: { hour: number; count: number }[];
   tasksCompletedByGoal: { goalId: string; goalTitle: string; count: number }[];
+  tasksCompletedByTheme: {
+    themeId: string;
+    themeName: string;
+    count: number;
+  }[];
 }> => {
   const tasks = await db.getTasks();
   const goals = await db.getGoals();
+  const themes = await db.getDailyThemes();
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -105,30 +111,76 @@ export const getTasksForAnalysis = async (): Promise<{
   });
 
   // Tasks completed by hour
-  const tasksCompletedByHour = Array.from({ length: 24 }, (_, hour) => {
-    const count = completedTasks.filter((task) => {
-      if (!task.completionTimestamp) return false;
-      const taskDate = new Date(task.completionTimestamp);
-      return taskDate.getHours() === hour;
-    }).length;
+  const hourCounts = Array.from({ length: 24 }, (_, i) => ({
+    hour: i,
+    count: 0,
+  }));
 
-    return { hour, count };
+  completedTasks.forEach((task) => {
+    if (task.completionTimestamp) {
+      const date = new Date(task.completionTimestamp);
+      const hour = date.getHours();
+      hourCounts[hour].count += 1;
+    }
   });
 
   // Tasks completed by goal
-  const tasksCompletedByGoal = goals.map((goal) => {
-    const count = completedTasks.filter(
-      (task) => task.goalId === goal.id
-    ).length;
-    return { goalId: goal.id, goalTitle: goal.title, count };
+  const goalCounts = goals.map((goal) => ({
+    goalId: goal.id,
+    goalTitle: goal.title,
+    count: completedTasks.filter((task) => task.goalId === goal.id).length,
+  }));
+
+  // Tasks completed by theme
+  const themeTaskMapping = new Map<string, number>();
+
+  // First, count direct theme associations
+  completedTasks.forEach((task) => {
+    if (task.themeId) {
+      const count = themeTaskMapping.get(task.themeId) || 0;
+      themeTaskMapping.set(task.themeId, count + 1);
+    }
   });
+
+  // Next, count tag-based associations
+  completedTasks.forEach((task) => {
+    if (!task.themeId && task.tags && task.tags.length > 0) {
+      // Find themes that match this task's tags
+      themes.forEach((theme) => {
+        if (theme.tags && theme.tags.length > 0) {
+          // Check if any task tag matches any theme tag
+          const hasMatchingTag = task.tags.some((taskTag) =>
+            theme.tags.includes(taskTag.toLowerCase())
+          );
+
+          if (hasMatchingTag) {
+            const count = themeTaskMapping.get(theme.id) || 0;
+            themeTaskMapping.set(theme.id, count + 1);
+          }
+        }
+      });
+    }
+  });
+
+  // Convert map to array format
+  const tasksCompletedByTheme = Array.from(themeTaskMapping.entries()).map(
+    ([themeId, count]) => {
+      const theme = themes.find((t) => t.id === themeId);
+      return {
+        themeId,
+        themeName: theme ? theme.name : "Unknown Theme",
+        count,
+      };
+    }
+  );
 
   return {
     tasksCompletedToday,
     tasksCompletedThisWeek,
     tasksCompletedByDay,
-    tasksCompletedByHour,
-    tasksCompletedByGoal,
+    tasksCompletedByHour: hourCounts,
+    tasksCompletedByGoal: goalCounts,
+    tasksCompletedByTheme,
   };
 };
 

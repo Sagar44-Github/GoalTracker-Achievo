@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useApp } from "@/context/AppContext";
 import { cn } from "@/lib/utils";
 import {
@@ -13,6 +13,7 @@ import {
   Sun,
   Moon,
   Trophy,
+  Palette,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +31,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { GoalTab } from "./GoalTab";
+import { DailyThemeSettings } from "./DailyThemeSettings";
 
 export function Sidebar() {
   const {
@@ -42,11 +44,18 @@ export function Sidebar() {
     toggleDarkMode,
     showGamificationView,
     toggleGamificationView,
+    isDailyThemeModeEnabled,
+    currentDayTheme,
   } = useApp();
 
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    const savedState = localStorage.getItem("sidebar-collapsed");
+    return savedState ? JSON.parse(savedState) : false;
+  });
+
   const [newGoalTitle, setNewGoalTitle] = useState("");
   const [isAddGoalDialogOpen, setIsAddGoalDialogOpen] = useState(false);
+  const [showThemeSettings, setShowThemeSettings] = useState(false);
 
   const handleAddGoal = async () => {
     if (newGoalTitle.trim()) {
@@ -142,6 +151,25 @@ export function Sidebar() {
           <Trophy size={18} className="mr-2" />
           {!isCollapsed && <span>Achievements</span>}
         </Button>
+
+        <Button
+          variant="ghost"
+          className={cn(
+            "w-full justify-start mb-1 relative",
+            showThemeSettings &&
+              "bg-sidebar-accent text-sidebar-accent-foreground"
+          )}
+          onClick={() => setShowThemeSettings(true)}
+        >
+          <Palette size={18} className="mr-2" />
+          {!isCollapsed && <span>Daily Themes</span>}
+          {isDailyThemeModeEnabled && currentDayTheme && (
+            <div
+              className="absolute top-1 right-1 w-2 h-2 rounded-full"
+              style={{ backgroundColor: currentDayTheme.color }}
+            ></div>
+          )}
+        </Button>
       </div>
 
       {/* Goals Section with Scrolling */}
@@ -228,6 +256,19 @@ export function Sidebar() {
           </DropdownMenu>
         )}
       </div>
+
+      {/* Daily Theme Settings Dialog */}
+      <Dialog open={showThemeSettings} onOpenChange={setShowThemeSettings}>
+        <DialogContent className="max-w-3xl h-[80vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Palette size={18} />
+              Daily Themes Settings
+            </DialogTitle>
+          </DialogHeader>
+          <DailyThemeSettings />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

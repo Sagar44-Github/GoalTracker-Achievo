@@ -31,6 +31,7 @@ import {
   ChevronUp,
   ChevronDown,
   Trophy,
+  Palette,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,11 @@ interface AnalyticsData {
   tasksCompletedByDay: { date: string; count: number }[];
   tasksCompletedByHour: { hour: number; count: number }[];
   tasksCompletedByGoal: { goalId: string; goalTitle: string; count: number }[];
+  tasksCompletedByTheme: {
+    themeId: string;
+    themeName: string;
+    count: number;
+  }[];
 }
 
 export function Dashboard() {
@@ -55,7 +61,13 @@ export function Dashboard() {
     return null;
   }
 
-  const { goals, refreshData, toggleGamificationView } = appContext;
+  const {
+    goals,
+    refreshData,
+    toggleGamificationView,
+    isDailyThemeModeEnabled,
+    dailyThemes,
+  } = appContext;
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(
     null
   );
@@ -116,6 +128,13 @@ export function Dashboard() {
     "#FFA726",
     "#26C6DA",
   ];
+
+  // New colors for theme chart
+  const THEME_COLORS = dailyThemes.map((theme) => theme.color || "#9b87f5");
+
+  // Prepare data for theme chart
+  const themeData =
+    analyticsData?.tasksCompletedByTheme.filter((t) => t.count > 0) || [];
 
   // Determine longest streak
   const maxStreak = goals.reduce(
@@ -422,6 +441,80 @@ export function Dashboard() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Add theme data visualization */}
+        {isDailyThemeModeEnabled && themeData.length > 0 && (
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <Palette size={20} className="text-achievo-purple" />
+              Theme Productivity
+            </h2>
+            <Card className="h-[300px] sm:h-[400px]">
+              <CardHeader className="p-3 sm:p-6">
+                <CardTitle className="text-sm sm:text-base">
+                  Daily Themes Performance
+                </CardTitle>
+                <CardDescription className="text-xs sm:text-sm">
+                  Tasks completed by theme
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-0 sm:p-0 h-[200px] sm:h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={themeData}
+                    margin={{ top: 0, right: 30, left: 0, bottom: 40 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis
+                      dataKey="themeName"
+                      tick={{ fontSize: 10 }}
+                      angle={-45}
+                      textAnchor="end"
+                    />
+                    <YAxis tick={{ fontSize: 10 }} />
+                    <Tooltip
+                      formatter={(value, name, props) => {
+                        // Find the theme to get its color
+                        const theme = dailyThemes.find(
+                          (t) => t.name === props.payload.themeName
+                        );
+                        return [
+                          `${value} tasks`,
+                          props.payload.themeName,
+                          theme?.color || "#9b87f5",
+                        ];
+                      }}
+                      contentStyle={{
+                        borderRadius: "8px",
+                        border: "none",
+                        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+                        fontSize: "12px",
+                      }}
+                    />
+                    <Bar
+                      dataKey="count"
+                      name="Tasks Completed"
+                      radius={[4, 4, 0, 0]}
+                    >
+                      {themeData.map((entry, index) => {
+                        // Find the theme to get its color
+                        const theme = dailyThemes.find(
+                          (t) => t.name === entry.themeName
+                        );
+                        return (
+                          <Cell
+                            key={`cell-${index}`}
+                            fill={theme?.color || COLORS[index % COLORS.length]}
+                          />
+                        );
+                      })}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </div>
     </div>
   );

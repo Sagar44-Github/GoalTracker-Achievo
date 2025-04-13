@@ -73,6 +73,9 @@ export function TaskList() {
     createTask,
     isFocusMode,
     focusTimer,
+    isDailyThemeModeEnabled,
+    currentDayTheme,
+    getTasksMatchingCurrentTheme,
   } = useApp();
 
   const [isAddTaskDialogOpen, setIsAddTaskDialogOpen] = useState(false);
@@ -89,6 +92,7 @@ export function TaskList() {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [activeView, setActiveView] = useState<"list" | "graph">("list");
+  const [showThemeFilteredTasks, setShowThemeFilteredTasks] = useState(false);
 
   // Speech recognition setup
   const startListening = () => {
@@ -276,93 +280,121 @@ export function TaskList() {
     setActiveView(view);
   };
 
+  // Get tasks that match the current theme
+  const tasksMatchingTheme = isDailyThemeModeEnabled
+    ? getTasksMatchingCurrentTheme()
+    : [];
+
+  // Determine which tasks to display based on the theme filter
+  const displayTasks =
+    showThemeFilteredTasks && isDailyThemeModeEnabled
+      ? tasksMatchingTheme
+      : sortedTasks;
+
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      <div className="border-b p-3 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold">{headerText}</h1>
-          {/* Focus Mode Timer Display */}
-          {isFocusMode && focusTimer !== null && (
-            <div className="text-xl font-bold">
-              {Math.floor(focusTimer / 60)}:
-              {(focusTimer % 60).toString().padStart(2, "0")}
-            </div>
-          )}
-        </div>
+      <div className="p-4 flex flex-col gap-2">
+        <div className="flex justify-between items-center">
+          <h2 className="text-xl font-semibold">
+            {isFocusMode
+              ? "Focus Mode"
+              : currentGoalId
+              ? `Tasks for ${
+                  goals.find((g) => g.id === currentGoalId)?.title || ""
+                }`
+              : "All Tasks"}
+          </h2>
 
-        <div className="flex gap-2">
-          {!isFocusMode && (
-            <>
-              {currentGoalId && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    toggleView(activeView === "list" ? "graph" : "list")
-                  }
-                >
-                  <Network size={16} className="mr-1" />
-                  {activeView === "list" ? "Graph View" : "List View"}
-                </Button>
-              )}
+          <div className="flex gap-2">
+            {isDailyThemeModeEnabled && currentDayTheme && (
               <Button
-                variant="outline"
+                variant={showThemeFilteredTasks ? "default" : "outline"}
                 size="sm"
+                onClick={() =>
+                  setShowThemeFilteredTasks(!showThemeFilteredTasks)
+                }
+                className="flex items-center gap-1"
+                style={
+                  showThemeFilteredTasks
+                    ? { backgroundColor: currentDayTheme.color }
+                    : {}
+                }
+              >
+                <div
+                  className="w-3 h-3 rounded-full"
+                  style={{ backgroundColor: currentDayTheme.color }}
+                ></div>
+                {showThemeFilteredTasks
+                  ? currentDayTheme.name
+                  : `${currentDayTheme.name} Tasks`}
+                <Badge variant="outline" className="ml-1">
+                  {tasksMatchingTheme.length}
+                </Badge>
+              </Button>
+            )}
+
+            {!isFocusMode && (
+              <Button
+                size="sm"
+                className="flex items-center gap-1"
                 onClick={() => setIsAddTaskDialogOpen(true)}
               >
-                <Plus size={16} className="mr-1" />
-                Add Task
+                <Plus size={16} />
+                <span className="hidden md:inline">Add Task</span>
               </Button>
-              <Button variant="outline" size="icon" onClick={startListening}>
-                <Mic size={16} />
-              </Button>
-            </>
-          )}
+            )}
+          </div>
         </div>
+
+        {/* Theme Quote of the Day */}
+        {isDailyThemeModeEnabled &&
+          currentDayTheme &&
+          currentDayTheme.quote && (
+            <div
+              className="p-3 rounded-md border italic text-sm"
+              style={{
+                borderColor: currentDayTheme.color,
+                background: `${currentDayTheme.color}10`,
+              }}
+            >
+              "{currentDayTheme.quote}"
+            </div>
+          )}
+
+        {!isFocusMode && (
+          <div className="mt-2">
+            <CommandInput />
+          </div>
+        )}
+
+        {isFocusMode && focusTimer !== null && (
+          <div className="text-center py-2 bg-muted/50 rounded-md my-2">
+            <span className="font-mono text-2xl">
+              {Math.floor(focusTimer / 60)
+                .toString()
+                .padStart(2, "0")}
+              :{(focusTimer % 60).toString().padStart(2, "0")}
+            </span>
+          </div>
+        )}
       </div>
 
-      {/* Command input for quick add */}
-      <CommandInput />
-
-      {/* View selector */}
-      {!isFocusMode && currentGoalId && (
-        <div className="border-b px-3 py-2">
-          <Tabs
-            value={activeView}
-            onValueChange={(v) => toggleView(v as "list" | "graph")}
-            className="w-full"
-          >
-            <TabsList className="grid w-60 grid-cols-2">
-              <TabsTrigger value="list">List View</TabsTrigger>
-              <TabsTrigger value="graph">Graph View</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
-      )}
-
-      {/* Main content - either list or graph */}
-      <div className="flex-1 overflow-auto">
+      <div className="flex-1 overflow-auto px-4 pb-4">
         {activeView === "list" || !currentGoalId ? (
-          <ul className="space-y-2 p-3">
-            {sortedTasks.map((task) => (
+          <ul className="space-y-2">
+            {displayTasks.map((task) => (
               <li key={task.id} className="border rounded-lg shadow-sm">
                 <TaskItem task={task} />
               </li>
             ))}
-            {sortedTasks.length === 0 && (
+            {displayTasks.length === 0 && (
               <li className="text-center py-8 text-muted-foreground">
                 No tasks to display
               </li>
             )}
           </ul>
         ) : (
-          <div
-            id="graph-container"
-            className="h-full w-full"
-            style={{ height: "calc(100vh - 160px)" }}
-          >
-            <GraphView goalId={currentGoalId} />
-          </div>
+          <GraphView tasks={filteredTasks} />
         )}
       </div>
 

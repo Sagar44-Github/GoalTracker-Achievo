@@ -1,4 +1,4 @@
-import { Goal, Task, db } from "./db";
+import { Goal, Task, DailyTheme, db } from "./db";
 
 /**
  * Add more pre-built data to the application.
@@ -303,6 +303,9 @@ export const addPrebuiltData = async (): Promise<void> => {
       details: { title: "Weekly home maintenance check" },
     });
   }
+
+  // Add theme-based tasks
+  await addThemeBasedTasks();
 };
 
 /**
@@ -528,4 +531,230 @@ export const addInactivityDemoData = async (): Promise<void> => {
     timestamp: timestamp - 30 * dayInMs,
     details: { title: "Abandoned task (30 days)" },
   });
+
+  // Add theme-based tasks if they don't exist yet
+  const themeTaskExists = await db.getTask("theme-task-monday-1");
+  if (!themeTaskExists) {
+    await addThemeBasedTasks();
+  }
+};
+
+/**
+ * Add some pre-built tasks that match the daily themes.
+ * This will ensure there's data to demonstrate the Daily Themes Mode feature.
+ */
+export const addThemeBasedTasks = async (): Promise<void> => {
+  // Get the daily themes
+  const themes = await db.getDailyThemes();
+  if (themes.length === 0) {
+    console.log("No themes found. Creating default themes first.");
+    await db.createDefaultThemes();
+    themes.push(...(await db.getDailyThemes()));
+  }
+
+  const today = new Date().toISOString().split("T")[0];
+  const tomorrow = new Date(Date.now() + 1 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .split("T")[0];
+  const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .split("T")[0];
+
+  // Get a theme by day name
+  const getThemeByDay = (day: string): DailyTheme | undefined => {
+    return themes.find(
+      (theme) => theme.day.toLowerCase() === day.toLowerCase()
+    );
+  };
+
+  // Tasks for Monday - Mind & Body
+  const mondayTheme = getThemeByDay("monday");
+  if (mondayTheme) {
+    const mondayTasks: Task[] = [
+      {
+        id: "theme-task-monday-1",
+        title: "Morning yoga session",
+        dueDate: today,
+        suggestedDueDate: today,
+        createdAt: Date.now() - 7 * 24 * 60 * 60 * 1000,
+        goalId: null,
+        tags: ["health", "exercise", "mindfulness"],
+        completed: false,
+        priority: "high",
+        isArchived: false,
+        repeatPattern: { type: "weekly", interval: 1 },
+        completionTimestamp: null,
+        themeId: mondayTheme.id,
+      },
+      {
+        id: "theme-task-monday-2",
+        title: "Meditation practice",
+        dueDate: today,
+        suggestedDueDate: today,
+        createdAt: Date.now() - 14 * 24 * 60 * 60 * 1000,
+        goalId: null,
+        tags: ["mindfulness", "mental health"],
+        completed: true,
+        priority: "medium",
+        isArchived: false,
+        repeatPattern: { type: "daily", interval: 1 },
+        completionTimestamp: Date.now() - 1 * 24 * 60 * 60 * 1000,
+        themeId: mondayTheme.id,
+      },
+    ];
+
+    // Add Monday tasks
+    for (const task of mondayTasks) {
+      const exists = await db.getTask(task.id);
+      if (!exists) {
+        await db.addTask(task);
+      }
+    }
+  }
+
+  // Tasks for Tuesday - Work & Career
+  const tuesdayTheme = getThemeByDay("tuesday");
+  if (tuesdayTheme) {
+    const tuesdayTasks: Task[] = [
+      {
+        id: "theme-task-tuesday-1",
+        title: "Update resume",
+        dueDate: tomorrow,
+        suggestedDueDate: tomorrow,
+        createdAt: Date.now() - 5 * 24 * 60 * 60 * 1000,
+        goalId: null,
+        tags: ["career", "professional"],
+        completed: false,
+        priority: "medium",
+        isArchived: false,
+        repeatPattern: null,
+        completionTimestamp: null,
+        themeId: tuesdayTheme.id,
+      },
+      {
+        id: "theme-task-tuesday-2",
+        title: "Career development research",
+        dueDate: nextWeek,
+        suggestedDueDate: nextWeek,
+        createdAt: Date.now() - 10 * 24 * 60 * 60 * 1000,
+        goalId: null,
+        tags: ["career", "learning", "productivity"],
+        completed: false,
+        priority: "low",
+        isArchived: false,
+        repeatPattern: null,
+        completionTimestamp: null,
+        themeId: tuesdayTheme.id,
+      },
+    ];
+
+    // Add Tuesday tasks
+    for (const task of tuesdayTasks) {
+      const exists = await db.getTask(task.id);
+      if (!exists) {
+        await db.addTask(task);
+      }
+    }
+  }
+
+  // Tasks for Wednesday - Relationships
+  const wednesdayTheme = getThemeByDay("wednesday");
+  if (wednesdayTheme) {
+    const wednesdayTasks: Task[] = [
+      {
+        id: "theme-task-wednesday-1",
+        title: "Call a friend",
+        dueDate: tomorrow,
+        suggestedDueDate: tomorrow,
+        createdAt: Date.now() - 3 * 24 * 60 * 60 * 1000,
+        goalId: null,
+        tags: ["friends", "social", "connection"],
+        completed: false,
+        priority: "high",
+        isArchived: false,
+        repeatPattern: { type: "weekly", interval: 1 },
+        completionTimestamp: null,
+        themeId: wednesdayTheme.id,
+      },
+      {
+        id: "theme-task-wednesday-2",
+        title: "Family dinner planning",
+        dueDate: nextWeek,
+        suggestedDueDate: nextWeek,
+        createdAt: Date.now() - 6 * 24 * 60 * 60 * 1000,
+        goalId: null,
+        tags: ["family", "connection", "social"],
+        completed: false,
+        priority: "medium",
+        isArchived: false,
+        repeatPattern: null,
+        completionTimestamp: null,
+        themeId: wednesdayTheme.id,
+      },
+    ];
+
+    // Add Wednesday tasks
+    for (const task of wednesdayTasks) {
+      const exists = await db.getTask(task.id);
+      if (!exists) {
+        await db.addTask(task);
+      }
+    }
+  }
+
+  // Create a few completed tasks to show in the theme stats
+  const now = Date.now();
+  const completedThemeTasks: Task[] = [];
+
+  // Add completed tasks for all themes to populate the statistics
+  themes.forEach((theme) => {
+    for (let i = 1; i <= 3; i++) {
+      const daysAgo = Math.floor(Math.random() * 14) + 1; // 1-14 days ago
+
+      completedThemeTasks.push({
+        id: `theme-completed-${theme.day}-${i}`,
+        title: `Completed ${theme.name} task ${i}`,
+        dueDate: new Date(now - daysAgo * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .split("T")[0],
+        suggestedDueDate: new Date(now - daysAgo * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .split("T")[0],
+        createdAt: now - (daysAgo + 2) * 24 * 60 * 60 * 1000,
+        goalId: null,
+        tags: theme.tags.slice(0, 2), // Use a couple tags from the theme
+        completed: true,
+        priority: ["low", "medium", "high"][Math.floor(Math.random() * 3)] as
+          | "low"
+          | "medium"
+          | "high",
+        isArchived: false,
+        repeatPattern: null,
+        completionTimestamp: now - daysAgo * 24 * 60 * 60 * 1000,
+        themeId: theme.id,
+      });
+    }
+  });
+
+  // Add all completed theme tasks
+  for (const task of completedThemeTasks) {
+    const exists = await db.getTask(task.id);
+    if (!exists) {
+      await db.addTask(task);
+
+      // Add history entries for these tasks
+      if (task.completionTimestamp) {
+        await db.addHistoryEntry({
+          id: crypto.randomUUID(),
+          type: "complete",
+          entityId: task.id,
+          entityType: "task",
+          timestamp: task.completionTimestamp,
+          details: { title: task.title },
+        });
+      }
+    }
+  }
+
+  console.log("Theme-based tasks added successfully");
 };

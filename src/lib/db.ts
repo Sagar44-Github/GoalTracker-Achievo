@@ -23,6 +23,11 @@ export interface AchievoDB extends DBSchema {
     value: HistoryEntry;
     indexes: { "by-timestamp": number };
   };
+  dailyThemes: {
+    key: string;
+    value: DailyTheme;
+    indexes: { "by-day": string };
+  };
 }
 
 // Define the data types
@@ -60,6 +65,7 @@ export interface Task {
   dependencies?: string[]; // Task IDs that this task depends on
   xp?: number; // Experience points earned for completing this task
   timeSpent?: number; // Time spent on this task in milliseconds
+  themeId?: string; // Associated daily theme ID
 }
 
 export interface RepeatPattern {
@@ -75,6 +81,16 @@ export interface HistoryEntry {
   entityType: "task" | "goal";
   timestamp: number;
   details: any;
+}
+
+export interface DailyTheme {
+  id: string;
+  day: string; // "monday", "tuesday", etc., or "weekend"
+  name: string;
+  description?: string;
+  color?: string;
+  quote?: string;
+  tags: string[]; // Tags that are associated with this theme
 }
 
 // Database singleton
@@ -137,6 +153,14 @@ const initDB = async () => {
               keyPath: "id",
             });
             historyStore.createIndex("by-timestamp", "timestamp");
+          }
+
+          if (!db.objectStoreNames.contains("dailyThemes")) {
+            console.log("Creating daily themes store");
+            const dailyThemesStore = db.createObjectStore("dailyThemes", {
+              keyPath: "id",
+            });
+            dailyThemesStore.createIndex("by-day", "day");
           }
           console.log("Database schema upgrade complete");
         },
@@ -500,251 +524,401 @@ export const db = {
     );
   },
 
+  // Daily Themes operations
+  async getDailyThemes(): Promise<DailyTheme[]> {
+    try {
+      const db = await initDB();
+      return db.getAll("dailyThemes");
+    } catch (error) {
+      console.error("Error in getDailyThemes:", error);
+      return [];
+    }
+  },
+
+  async getDailyThemeByDay(day: string): Promise<DailyTheme | undefined> {
+    try {
+      const db = await initDB();
+      const index = db.transaction("dailyThemes").store.index("by-day");
+      return index.get(day.toLowerCase());
+    } catch (error) {
+      console.error(`Error in getDailyThemeByDay(${day}):`, error);
+      return undefined;
+    }
+  },
+
+  async addDailyTheme(theme: DailyTheme): Promise<string> {
+    try {
+      const db = await initDB();
+      await db.put("dailyThemes", theme);
+      return theme.id;
+    } catch (error) {
+      console.error("Error in addDailyTheme:", error);
+      throw new Error(
+        "Failed to add theme: " +
+          (error instanceof Error ? error.message : String(error))
+      );
+    }
+  },
+
+  async updateDailyTheme(theme: DailyTheme): Promise<string> {
+    try {
+      const db = await initDB();
+      await db.put("dailyThemes", theme);
+      return theme.id;
+    } catch (error) {
+      console.error("Error in updateDailyTheme:", error);
+      throw new Error(
+        "Failed to update theme: " +
+          (error instanceof Error ? error.message : String(error))
+      );
+    }
+  },
+
+  async deleteDailyTheme(id: string): Promise<void> {
+    try {
+      const db = await initDB();
+      await db.delete("dailyThemes", id);
+    } catch (error) {
+      console.error("Error in deleteDailyTheme:", error);
+      throw new Error(
+        "Failed to delete theme: " +
+          (error instanceof Error ? error.message : String(error))
+      );
+    }
+  },
+
+  async createDefaultThemes(): Promise<void> {
+    try {
+      const defaultThemes: DailyTheme[] = [
+        {
+          id: crypto.randomUUID(),
+          day: "monday",
+          name: "Mind & Body",
+          description: "Focus on physical and mental well-being",
+          color: "#4CAF50", // Green
+          quote:
+            "Take care of your body. It's the only place you have to live.",
+          tags: ["health", "wellness", "exercise", "mindfulness", "meditation"],
+        },
+        {
+          id: crypto.randomUUID(),
+          day: "tuesday",
+          name: "Work & Career",
+          description: "Focus on professional growth and development",
+          color: "#2196F3", // Blue
+          quote: "The only way to do great work is to love what you do.",
+          tags: ["work", "career", "professional", "productivity", "job"],
+        },
+        {
+          id: crypto.randomUUID(),
+          day: "wednesday",
+          name: "Relationships",
+          description: "Focus on building and maintaining relationships",
+          color: "#E91E63", // Pink
+          quote:
+            "The quality of your life is determined by the quality of your relationships.",
+          tags: ["family", "friends", "social", "connection", "community"],
+        },
+        {
+          id: crypto.randomUUID(),
+          day: "thursday",
+          name: "Deep Focus",
+          description: "Focus on deep work and complex projects",
+          color: "#673AB7", // Deep Purple
+          quote: "The ability to focus is the ability to succeed.",
+          tags: ["focus", "deep work", "concentration", "project", "creative"],
+        },
+        {
+          id: crypto.randomUUID(),
+          day: "friday",
+          name: "Side Projects",
+          description: "Focus on personal projects and hobbies",
+          color: "#FF9800", // Orange
+          quote: "Creativity is intelligence having fun.",
+          tags: ["hobby", "creative", "project", "personal", "fun"],
+        },
+        {
+          id: crypto.randomUUID(),
+          day: "weekend",
+          name: "Recharge & Reflect",
+          description: "Focus on rest, reflection, and planning",
+          color: "#795548", // Brown
+          quote: "Rest and reflection produce progress.",
+          tags: ["rest", "relax", "reflect", "plan", "recharge"],
+        },
+      ];
+
+      const db = await initDB();
+
+      // Check if themes already exist
+      const existingThemes = await this.getDailyThemes();
+      if (existingThemes.length === 0) {
+        // Add default themes
+        for (const theme of defaultThemes) {
+          await db.add("dailyThemes", theme);
+        }
+        console.log("Default themes created");
+      }
+    } catch (error) {
+      console.error("Error creating default themes:", error);
+    }
+  },
+
+  // Update createDefaultData to include themes
   async createDefaultData(): Promise<void> {
-    // Check if data already exists
-    const existingGoals = await this.getGoals();
-    if (existingGoals.length > 0) return;
+    try {
+      // Check if data already exists
+      const existingGoals = await this.getGoals();
+      if (existingGoals.length > 0) return;
 
-    // Create some initial goals
-    const initialGoals: Goal[] = [
-      {
-        id: "fitness-goal",
-        title: "Get Fit",
-        createdAt: Date.now() - 30 * 24 * 60 * 60 * 1000, // 30 days ago
-        taskIds: [],
-        order: 0,
-        streakCounter: 5,
-        lastCompletedDate: new Date().toISOString().split("T")[0],
-        color: "#4CAF50",
-        level: 1,
-        xp: 100,
-      },
-      {
-        id: "work-goal",
-        title: "Career Growth",
-        createdAt: Date.now() - 45 * 24 * 60 * 60 * 1000, // 45 days ago
-        taskIds: [],
-        order: 1,
-        streakCounter: 3,
-        lastCompletedDate: new Date().toISOString().split("T")[0],
-        color: "#2196F3",
-        level: 1,
-        xp: 75,
-      },
-      {
-        id: "personal-dev",
-        title: "Personal Development",
-        createdAt: Date.now() - 60 * 24 * 60 * 60 * 1000, // 60 days ago
-        taskIds: [],
-        order: 2,
-        streakCounter: 2,
-        lastCompletedDate: null,
-        color: "#9C27B0",
-        level: 1,
-        xp: 50,
-      },
-    ];
+      // Create some initial goals
+      const initialGoals: Goal[] = [
+        {
+          id: "fitness-goal",
+          title: "Get Fit",
+          createdAt: Date.now() - 30 * 24 * 60 * 60 * 1000, // 30 days ago
+          taskIds: [],
+          order: 0,
+          streakCounter: 5,
+          lastCompletedDate: new Date().toISOString().split("T")[0],
+          color: "#4CAF50",
+          level: 1,
+          xp: 100,
+        },
+        {
+          id: "work-goal",
+          title: "Career Growth",
+          createdAt: Date.now() - 45 * 24 * 60 * 60 * 1000, // 45 days ago
+          taskIds: [],
+          order: 1,
+          streakCounter: 3,
+          lastCompletedDate: new Date().toISOString().split("T")[0],
+          color: "#2196F3",
+          level: 1,
+          xp: 75,
+        },
+        {
+          id: "personal-dev",
+          title: "Personal Development",
+          createdAt: Date.now() - 60 * 24 * 60 * 60 * 1000, // 60 days ago
+          taskIds: [],
+          order: 2,
+          streakCounter: 2,
+          lastCompletedDate: null,
+          color: "#9C27B0",
+          level: 1,
+          xp: 50,
+        },
+      ];
 
-    // Add goals
-    for (const goal of initialGoals) {
-      await this.addGoal(goal);
-    }
-
-    // Create some initial tasks
-    const initialTasks: Task[] = [
-      {
-        id: "task-1",
-        title: "Complete 30-minute workout",
-        dueDate: new Date().toISOString().split("T")[0],
-        suggestedDueDate: new Date().toISOString().split("T")[0],
-        createdAt: Date.now() - 5 * 24 * 60 * 60 * 1000,
-        goalId: "fitness-goal",
-        tags: ["exercise", "health"],
-        completed: true,
-        priority: "high",
-        isArchived: false,
-        repeatPattern: { type: "daily", interval: 1 },
-        completionTimestamp: Date.now() - 4 * 24 * 60 * 60 * 1000,
-        xp: 50,
-        timeSpent: 30 * 60 * 1000,
-      },
-      {
-        id: "task-2",
-        title: "Update resume",
-        dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-          .toISOString()
-          .split("T")[0],
-        suggestedDueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-          .toISOString()
-          .split("T")[0],
-        createdAt: Date.now() - 10 * 24 * 60 * 60 * 1000,
-        goalId: "work-goal",
-        tags: ["career", "job"],
-        completed: false,
-        priority: "medium",
-        isArchived: false,
-        repeatPattern: null,
-        completionTimestamp: null,
-        xp: 75,
-      },
-      {
-        id: "task-3",
-        title: "Read a personal development book",
-        dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
-          .toISOString()
-          .split("T")[0],
-        suggestedDueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
-          .toISOString()
-          .split("T")[0],
-        createdAt: Date.now() - 15 * 24 * 60 * 60 * 1000,
-        goalId: "personal-dev",
-        tags: ["reading", "learning"],
-        completed: false,
-        priority: "low",
-        isArchived: false,
-        repeatPattern: null,
-        completionTimestamp: null,
-        xp: 50,
-      },
-      {
-        id: "task-4",
-        title: "Research interview questions",
-        dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
-          .toISOString()
-          .split("T")[0],
-        suggestedDueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
-          .toISOString()
-          .split("T")[0],
-        createdAt: Date.now() - 2 * 24 * 60 * 60 * 1000,
-        goalId: "work-goal",
-        tags: ["interview", "preparation"],
-        completed: false,
-        priority: "high",
-        isArchived: false,
-        repeatPattern: null,
-        completionTimestamp: null,
-        dependencies: ["task-2"],
-        xp: 100,
-      },
-      // Additional repeating tasks for testing history
-      {
-        id: "task-5",
-        title: "Meditate for 10 minutes",
-        dueDate: new Date().toISOString().split("T")[0],
-        suggestedDueDate: new Date().toISOString().split("T")[0],
-        createdAt: Date.now() - 60 * 24 * 60 * 60 * 1000, // Created 60 days ago
-        goalId: "personal-dev",
-        tags: ["wellbeing", "mindfulness"],
-        completed: true,
-        priority: "medium",
-        isArchived: false,
-        repeatPattern: { type: "daily", interval: 1 },
-        completionTimestamp: Date.now() - 1 * 24 * 60 * 60 * 1000, // Completed yesterday
-        xp: 30,
-      },
-      {
-        id: "task-6",
-        title: "Weekly planning session",
-        dueDate: new Date().toISOString().split("T")[0],
-        suggestedDueDate: new Date().toISOString().split("T")[0],
-        createdAt: Date.now() - 90 * 24 * 60 * 60 * 1000, // Created 90 days ago
-        goalId: "work-goal",
-        tags: ["planning", "productivity"],
-        completed: false,
-        priority: "high",
-        isArchived: false,
-        repeatPattern: { type: "weekly", interval: 1 },
-        completionTimestamp: null,
-        xp: 50,
-      },
-      {
-        id: "task-7",
-        title: "Learn a new coding skill",
-        dueDate: new Date().toISOString().split("T")[0],
-        suggestedDueDate: new Date().toISOString().split("T")[0],
-        createdAt: Date.now() - 45 * 24 * 60 * 60 * 1000, // Created 45 days ago
-        goalId: "personal-dev",
-        tags: ["coding", "learning"],
-        completed: true,
-        priority: "medium",
-        isArchived: false,
-        repeatPattern: { type: "weekly", interval: 1 },
-        completionTimestamp: Date.now() - 2 * 24 * 60 * 60 * 1000, // Completed 2 days ago
-        xp: 80,
-      },
-    ];
-
-    // Add tasks
-    for (const task of initialTasks) {
-      await this.addTask(task);
-    }
-
-    // Add some history entries to simulate task completion history
-    // This will help demonstrate the streak and history features
-    const today = new Date();
-    const now = Date.now();
-
-    // Create history for the daily workout task (task-1)
-    for (let i = 1; i <= 60; i++) {
-      // Skip some days randomly to create realistic completion patterns
-      if (i % 4 === 0 || i % 7 === 0) {
-        continue; // Skip this day to simulate missed days
+      // Add goals
+      for (const goal of initialGoals) {
+        await this.addGoal(goal);
       }
 
-      const timestamp = now - i * 24 * 60 * 60 * 1000;
-      await this.addHistoryEntry({
-        id: crypto.randomUUID(),
-        type: "complete",
-        entityId: "task-1",
-        entityType: "task",
-        timestamp: timestamp,
-        details: { title: "Complete 30-minute workout" },
-      });
-    }
+      // Create some initial tasks
+      const initialTasks: Task[] = [
+        {
+          id: "task-1",
+          title: "Complete 30-minute workout",
+          dueDate: new Date().toISOString().split("T")[0],
+          suggestedDueDate: new Date().toISOString().split("T")[0],
+          createdAt: Date.now() - 5 * 24 * 60 * 60 * 1000,
+          goalId: "fitness-goal",
+          tags: ["exercise", "health"],
+          completed: true,
+          priority: "high",
+          isArchived: false,
+          repeatPattern: { type: "daily", interval: 1 },
+          completionTimestamp: Date.now() - 4 * 24 * 60 * 60 * 1000,
+          xp: 50,
+          timeSpent: 30 * 60 * 1000,
+        },
+        {
+          id: "task-2",
+          title: "Update resume",
+          dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+            .toISOString()
+            .split("T")[0],
+          suggestedDueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+            .toISOString()
+            .split("T")[0],
+          createdAt: Date.now() - 10 * 24 * 60 * 60 * 1000,
+          goalId: "work-goal",
+          tags: ["career", "job"],
+          completed: false,
+          priority: "medium",
+          isArchived: false,
+          repeatPattern: null,
+          completionTimestamp: null,
+          xp: 75,
+        },
+        {
+          id: "task-3",
+          title: "Read a personal development book",
+          dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+            .toISOString()
+            .split("T")[0],
+          suggestedDueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+            .toISOString()
+            .split("T")[0],
+          createdAt: Date.now() - 15 * 24 * 60 * 60 * 1000,
+          goalId: "personal-dev",
+          tags: ["reading", "learning"],
+          completed: false,
+          priority: "low",
+          isArchived: false,
+          repeatPattern: null,
+          completionTimestamp: null,
+          xp: 50,
+        },
+        {
+          id: "task-4",
+          title: "Research interview questions",
+          dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
+            .toISOString()
+            .split("T")[0],
+          suggestedDueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
+            .toISOString()
+            .split("T")[0],
+          createdAt: Date.now() - 2 * 24 * 60 * 60 * 1000,
+          goalId: "work-goal",
+          tags: ["interview", "preparation"],
+          completed: false,
+          priority: "high",
+          isArchived: false,
+          repeatPattern: null,
+          completionTimestamp: null,
+          dependencies: ["task-2"],
+          xp: 100,
+        },
+        // Additional repeating tasks for testing history
+        {
+          id: "task-5",
+          title: "Meditate for 10 minutes",
+          dueDate: new Date().toISOString().split("T")[0],
+          suggestedDueDate: new Date().toISOString().split("T")[0],
+          createdAt: Date.now() - 60 * 24 * 60 * 60 * 1000, // Created 60 days ago
+          goalId: "personal-dev",
+          tags: ["wellbeing", "mindfulness"],
+          completed: true,
+          priority: "medium",
+          isArchived: false,
+          repeatPattern: { type: "daily", interval: 1 },
+          completionTimestamp: Date.now() - 1 * 24 * 60 * 60 * 1000, // Completed yesterday
+          xp: 30,
+        },
+        {
+          id: "task-6",
+          title: "Weekly planning session",
+          dueDate: new Date().toISOString().split("T")[0],
+          suggestedDueDate: new Date().toISOString().split("T")[0],
+          createdAt: Date.now() - 90 * 24 * 60 * 60 * 1000, // Created 90 days ago
+          goalId: "work-goal",
+          tags: ["planning", "productivity"],
+          completed: false,
+          priority: "high",
+          isArchived: false,
+          repeatPattern: { type: "weekly", interval: 1 },
+          completionTimestamp: null,
+          xp: 50,
+        },
+        {
+          id: "task-7",
+          title: "Learn a new coding skill",
+          dueDate: new Date().toISOString().split("T")[0],
+          suggestedDueDate: new Date().toISOString().split("T")[0],
+          createdAt: Date.now() - 45 * 24 * 60 * 60 * 1000, // Created 45 days ago
+          goalId: "personal-dev",
+          tags: ["coding", "learning"],
+          completed: true,
+          priority: "medium",
+          isArchived: false,
+          repeatPattern: { type: "weekly", interval: 1 },
+          completionTimestamp: Date.now() - 2 * 24 * 60 * 60 * 1000, // Completed 2 days ago
+          xp: 80,
+        },
+      ];
 
-    // Create history for meditation task (task-5)
-    // Create a good streak recently
-    for (let i = 1; i <= 14; i++) {
-      const timestamp = now - i * 24 * 60 * 60 * 1000;
-      await this.addHistoryEntry({
-        id: crypto.randomUUID(),
-        type: "complete",
-        entityId: "task-5",
-        entityType: "task",
-        timestamp: timestamp,
-        details: { title: "Meditate for 10 minutes" },
-      });
-    }
-
-    // Add some gaps and then more history
-    for (let i = 20; i <= 50; i++) {
-      // Create pattern with more gaps
-      if (i % 3 === 0 || i % 5 === 0) {
-        continue; // Skip to create gaps
+      // Add tasks
+      for (const task of initialTasks) {
+        await this.addTask(task);
       }
 
-      const timestamp = now - i * 24 * 60 * 60 * 1000;
-      await this.addHistoryEntry({
-        id: crypto.randomUUID(),
-        type: "complete",
-        entityId: "task-5",
-        entityType: "task",
-        timestamp: timestamp,
-        details: { title: "Meditate for 10 minutes" },
-      });
-    }
+      // Add some history entries to simulate task completion history
+      // This will help demonstrate the streak and history features
+      const today = new Date();
+      const now = Date.now();
 
-    // Create weekly coding skill task history (task-7)
-    for (let i = 1; i <= 6; i++) {
-      const timestamp = now - i * 7 * 24 * 60 * 60 * 1000;
-      await this.addHistoryEntry({
-        id: crypto.randomUUID(),
-        type: "complete",
-        entityId: "task-7",
-        entityType: "task",
-        timestamp: timestamp,
-        details: { title: "Learn a new coding skill" },
-      });
+      // Create history for the daily workout task (task-1)
+      for (let i = 1; i <= 60; i++) {
+        // Skip some days randomly to create realistic completion patterns
+        if (i % 4 === 0 || i % 7 === 0) {
+          continue; // Skip this day to simulate missed days
+        }
+
+        const timestamp = now - i * 24 * 60 * 60 * 1000;
+        await this.addHistoryEntry({
+          id: crypto.randomUUID(),
+          type: "complete",
+          entityId: "task-1",
+          entityType: "task",
+          timestamp: timestamp,
+          details: { title: "Complete 30-minute workout" },
+        });
+      }
+
+      // Create history for meditation task (task-5)
+      // Create a good streak recently
+      for (let i = 1; i <= 14; i++) {
+        const timestamp = now - i * 24 * 60 * 60 * 1000;
+        await this.addHistoryEntry({
+          id: crypto.randomUUID(),
+          type: "complete",
+          entityId: "task-5",
+          entityType: "task",
+          timestamp: timestamp,
+          details: { title: "Meditate for 10 minutes" },
+        });
+      }
+
+      // Add some gaps and then more history
+      for (let i = 20; i <= 50; i++) {
+        // Create pattern with more gaps
+        if (i % 3 === 0 || i % 5 === 0) {
+          continue; // Skip to create gaps
+        }
+
+        const timestamp = now - i * 24 * 60 * 60 * 1000;
+        await this.addHistoryEntry({
+          id: crypto.randomUUID(),
+          type: "complete",
+          entityId: "task-5",
+          entityType: "task",
+          timestamp: timestamp,
+          details: { title: "Meditate for 10 minutes" },
+        });
+      }
+
+      // Create weekly coding skill task history (task-7)
+      for (let i = 1; i <= 6; i++) {
+        const timestamp = now - i * 7 * 24 * 60 * 60 * 1000;
+        await this.addHistoryEntry({
+          id: crypto.randomUUID(),
+          type: "complete",
+          entityId: "task-7",
+          entityType: "task",
+          timestamp: timestamp,
+          details: { title: "Learn a new coding skill" },
+        });
+      }
+
+      // Create default themes
+      await this.createDefaultThemes();
+
+      console.log("Default data created");
+    } catch (error) {
+      console.error("Error creating default data:", error);
     }
   },
 
@@ -760,6 +934,7 @@ export const db = {
       await db.clear("goals");
       await db.clear("tasks");
       await db.clear("history");
+      await db.clear("dailyThemes");
 
       console.log("All data cleared from database");
     } catch (error) {
