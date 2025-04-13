@@ -8,7 +8,8 @@ import React, {
 import { Goal, Task, HistoryEntry, db } from "@/lib/db";
 import { toast } from "@/hooks/use-toast";
 import { applyTaskCompletionXP } from "@/lib/gamificationUtils";
-import { addPrebuiltData } from "@/lib/prebuiltData";
+import { addPrebuiltData, addInactivityDemoData } from "@/lib/prebuiltData";
+import { getInactiveGoals } from "@/lib/goalUtils";
 
 // Define the type for our context
 interface AppContextType {
@@ -21,13 +22,20 @@ interface AppContextType {
   focusTimer: number | null;
   showGamificationView: boolean;
 
+  // Goal inactivity settings and state
+  inactivityThreshold: number;
+  setInactivityThreshold: (days: number) => void;
+  inactiveGoals: Goal[];
+  dismissedInactiveGoals: string[];
+  goalDismissStatus: boolean;
+
   // Methods
   setCurrentGoalId: (goalId: string | null) => void;
   createGoal: (title: string) => Promise<string>;
   updateGoal: (goal: Goal) => Promise<string>;
   deleteGoal: (id: string) => Promise<void>;
 
-  createTask: (task: Partial<Task>) => Promise<string>;
+  createTask: (taskData: Partial<Task>) => Promise<string>;
   updateTask: (task: Task) => Promise<string>;
   completeTask: (id: string) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
@@ -44,6 +52,18 @@ interface AppContextType {
   // Focus mode methods
   enterFocusMode: () => void;
   exitFocusMode: () => void;
+
+  // New methods
+  forceInactivityCheck: () => Promise<Goal[]>;
+  deleteAllData: () => Promise<void>;
+  resetDatabase: () => Promise<void>;
+  toggleShowCompleted: () => void;
+  dismissInactiveGoal: (goalId: string) => void;
+  undoDismissInactiveGoal: (goalId: string) => void;
+  updateInactivityThreshold: (days: number) => void;
+
+  // Task methods
+  addTask: (taskData: Partial<Task>) => Promise<string>;
 }
 
 // Create the context with a default value
@@ -75,6 +95,17 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   // Error handling for the context
   const [contextError, setContextError] = useState<Error | null>(null);
+
+  // Goal inactivity state
+  const [inactivityThreshold, setInactivityThreshold] = useState(() => {
+    const savedThreshold = localStorage.getItem("achievo-inactivity-threshold");
+    return savedThreshold ? parseInt(savedThreshold, 10) : 10; // Default 10 days
+  });
+  const [inactiveGoals, setInactiveGoals] = useState<Goal[]>([]);
+  const [dismissedInactiveGoals, setDismissedInactiveGoals] = useState<
+    string[]
+  >([]);
+  const [goalDismissStatus, setGoalDismissStatus] = useState(false);
 
   // Load data when component mounts
   useEffect(() => {
@@ -112,6 +143,38 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem("achievo-dark-mode", isDarkMode.toString());
   }, [isDarkMode]);
 
+  // Persist inactivity threshold to localStorage
+  useEffect(() => {
+    localStorage.setItem(
+      "achievo-inactivity-threshold",
+      inactivityThreshold.toString()
+    );
+  }, [inactivityThreshold]);
+
+  // Check for inactive goals periodically
+  useEffect(() => {
+    const checkInactiveGoals = async () => {
+      try {
+        const inactive = await getInactiveGoals(inactivityThreshold);
+        // Filter out dismissed goals
+        const filteredInactive = inactive.filter(
+          (goal) => !dismissedInactiveGoals.includes(goal.id)
+        );
+        setInactiveGoals(filteredInactive);
+      } catch (error) {
+        console.error("Failed to check inactive goals:", error);
+      }
+    };
+
+    // Check when component mounts
+    checkInactiveGoals();
+
+    // Set up interval to check periodically (daily)
+    const intervalId = setInterval(checkInactiveGoals, 24 * 60 * 60 * 1000);
+
+    return () => clearInterval(intervalId);
+  }, [inactivityThreshold, goals, dismissedInactiveGoals]);
+
   // Function to refresh data from the database
   const refreshData = async () => {
     try {
@@ -145,8 +208,30 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
       // Apply current filter
       applyTaskFilter(loadedTasks);
+
+      // Check for inactive goals after data refresh
+      const inactive = await getInactiveGoals(inactivityThreshold);
+      const filteredInactive = inactive.filter(
+        (goal) => !dismissedInactiveGoals.includes(goal.id)
+      );
+      setInactiveGoals(filteredInactive);
     } catch (error) {
       console.error("Failed to refresh data:", error);
+    }
+  };
+
+  // Force check for inactive goals - useful after adding demo data
+  const forceInactivityCheck = async () => {
+    try {
+      const inactive = await getInactiveGoals(inactivityThreshold);
+      const filteredInactive = inactive.filter(
+        (goal) => !dismissedInactiveGoals.includes(goal.id)
+      );
+      setInactiveGoals(filteredInactive);
+      return filteredInactive;
+    } catch (error) {
+      console.error("Failed to check inactive goals:", error);
+      return [];
     }
   };
 
@@ -244,85 +329,160 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     };
 
     const taskId = await db.addTask(newTask);
+
+    // Update the goal's lastActiveDate if it has one
+    if (newTask.goalId) {
+      const goal = await db.getGoal(newTask.goalId);
+      if (goal) {
+        await db.updateGoal({
+          ...goal,
+          lastActiveDate: Date.now(),
+        });
+      }
+    }
+
     await refreshData();
     return taskId;
   };
 
   const updateTask = async (task: Task): Promise<string> => {
     const taskId = await db.updateTask(task);
+
+    // Update the goal's lastActiveDate if it has one
+    if (task.goalId) {
+      const goal = await db.getGoal(task.goalId);
+      if (goal) {
+        await db.updateGoal({
+          ...goal,
+          lastActiveDate: Date.now(),
+        });
+      }
+    }
+
     await refreshData();
     return taskId;
   };
 
   const completeTask = async (id: string): Promise<void> => {
     const task = await db.getTask(id);
-    if (task) {
-      // Check for dependencies if trying to complete the task
-      if (
-        !task.completed &&
-        task.dependencies &&
-        task.dependencies.length > 0
-      ) {
-        const allTasks = await db.getTasks();
-        const hasPendingDependencies = task.dependencies.some((depId) => {
-          const depTask = allTasks.find((t) => t.id === depId);
-          return depTask && !depTask.completed;
+    if (!task) return;
+
+    const now = Date.now();
+    const isCompleted = !task.completed;
+
+    // Toggle completion status
+    const updatedTask = {
+      ...task,
+      completed: isCompleted,
+      completionTimestamp: isCompleted ? now : null,
+    };
+
+    await db.updateTask(updatedTask);
+
+    // Add to history
+    await db.addHistoryEntry({
+      id: crypto.randomUUID(),
+      type: "complete",
+      entityId: task.id,
+      entityType: "task",
+      timestamp: now,
+      details: { title: task.title, completed: isCompleted },
+    });
+
+    // Update the goal's lastActiveDate if it has one
+    if (task.goalId) {
+      const goal = await db.getGoal(task.goalId);
+      if (goal) {
+        await db.updateGoal({
+          ...goal,
+          lastActiveDate: now,
         });
 
-        if (hasPendingDependencies) {
-          toast({
-            title: "Cannot complete task",
-            description: "Complete prerequisite tasks first",
-            variant: "destructive",
-          });
-          return;
+        // If the task is completed, update the goal's streak counter
+        if (isCompleted) {
+          await db.updateGoalStreakOnTaskCompletion(task.goalId);
         }
       }
-
-      task.completed = !task.completed;
-      task.completionTimestamp = task.completed ? Date.now() : null;
-      await db.updateTask(task);
-
-      // If task was marked as completed and belongs to a goal, apply XP
-      if (task.completed && task.goalId) {
-        try {
-          const result = await applyTaskCompletionXP(task.id);
-
-          // Notify user of XP gained
-          if (result.xpEarned > 0) {
-            toast({
-              title: `+${result.xpEarned} XP`,
-              description: "Task completed!",
-              variant: "default",
-            });
-          }
-
-          // Notify user of level up
-          if (result.leveledUp && result.newLevel) {
-            toast({
-              title: `Level Up!`,
-              description: `Goal reached level ${result.newLevel}!`,
-              variant: "default",
-            });
-          }
-
-          // Notify user of new badges
-          if (result.newBadges.length > 0) {
-            for (const badge of result.newBadges) {
-              toast({
-                title: `New Badge: ${badge.name}`,
-                description: badge.description,
-                variant: "default",
-              });
-            }
-          }
-        } catch (error) {
-          console.error("Failed to apply XP for task completion:", error);
-        }
-      }
-
-      await refreshData();
     }
+
+    // If the task is completed, apply the gamification effects
+    if (isCompleted) {
+      const xpEarned = await applyTaskCompletionXP(updatedTask);
+
+      // Show a toast notification with XP earned
+      toast({
+        title: `Task ${isCompleted ? "completed" : "uncompleted"}!`,
+        description: isCompleted
+          ? `You earned ${xpEarned} XP for completing "${task.title}"`
+          : `"${task.title}" marked as not completed`,
+      });
+    } else {
+      toast({
+        title: "Task marked incomplete",
+        description: `"${task.title}" has been re-opened`,
+      });
+    }
+
+    // Handle task repetition
+    if (
+      isCompleted &&
+      task.repeatPattern &&
+      (task.repeatPattern.type === "daily" ||
+        task.repeatPattern.type === "weekly" ||
+        task.repeatPattern.type === "monthly")
+    ) {
+      // Create a new task based on the repeat pattern
+      let newDueDate: string | null = null;
+
+      const currentDate = task.dueDate ? new Date(task.dueDate) : new Date();
+
+      switch (task.repeatPattern.type) {
+        case "daily":
+          currentDate.setDate(
+            currentDate.getDate() + task.repeatPattern.interval
+          );
+          newDueDate = currentDate.toISOString().split("T")[0];
+          break;
+        case "weekly":
+          currentDate.setDate(
+            currentDate.getDate() + 7 * task.repeatPattern.interval
+          );
+          newDueDate = currentDate.toISOString().split("T")[0];
+          break;
+        case "monthly":
+          currentDate.setMonth(
+            currentDate.getMonth() + task.repeatPattern.interval
+          );
+          newDueDate = currentDate.toISOString().split("T")[0];
+          break;
+      }
+
+      if (
+        !task.repeatPattern.endDate ||
+        (newDueDate && newDueDate <= task.repeatPattern.endDate)
+      ) {
+        // Create the next occurrence of this repeating task
+        const newTask: Task = {
+          id: crypto.randomUUID(),
+          title: task.title,
+          dueDate: newDueDate,
+          suggestedDueDate: newDueDate,
+          createdAt: now,
+          goalId: task.goalId,
+          tags: task.tags,
+          completed: false,
+          priority: task.priority,
+          isArchived: false,
+          repeatPattern: task.repeatPattern,
+          completionTimestamp: null,
+          xp: task.xp,
+        };
+
+        await db.addTask(newTask);
+      }
+    }
+
+    await refreshData();
   };
 
   const deleteTask = async (id: string): Promise<void> => {
@@ -573,11 +733,110 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setIsDarkMode((prev) => !prev);
   };
 
+  // Function to dismiss an inactive goal alert
+  const dismissInactiveGoal = (goalId: string) => {
+    setDismissedInactiveGoals((prev) => [...prev, goalId]);
+  };
+
+  // Function to undo a dismissed inactive goal
+  const undoDismissInactiveGoal = (goalId: string) => {
+    setDismissedInactiveGoals((prev) => prev.filter((id) => id !== goalId));
+  };
+
+  // Function to update inactivity threshold
+  const updateInactivityThreshold = (days: number) => {
+    setInactivityThreshold(days);
+  };
+
+  // Function to delete all data (for debugging/testing)
+  const deleteAllData = async (): Promise<void> => {
+    try {
+      await db.clearAllData();
+      toast({
+        title: "Data cleared",
+        description: "All application data has been reset",
+      });
+      await refreshData();
+    } catch (error) {
+      console.error("Failed to clear data:", error);
+      toast({
+        title: "Error",
+        description: "Failed to clear application data",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Function to reset the database in case of corruption
+  const resetDatabase = async (): Promise<void> => {
+    try {
+      console.log("Attempting to delete database");
+      // Delete the entire database
+      const deleteRequest = window.indexedDB.deleteDatabase("achievo-db");
+
+      deleteRequest.onsuccess = async () => {
+        console.log("Database deleted successfully");
+        toast({
+          title: "Database Reset",
+          description: "Database has been reset. Reloading page...",
+        });
+
+        // Reload the page after a short delay
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      };
+
+      deleteRequest.onerror = () => {
+        console.error("Failed to delete database:", deleteRequest.error);
+        toast({
+          title: "Error",
+          description: "Failed to reset database. Try refreshing the page.",
+          variant: "destructive",
+        });
+      };
+    } catch (error) {
+      console.error("Error resetting database:", error);
+      toast({
+        title: "Error",
+        description: "Failed to reset database. Try refreshing the page.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Toggle showing completed tasks
+  const toggleShowCompleted = () => {
+    const showCompleted = !filteredTasks.some((task) => task.completed);
+
+    if (showCompleted) {
+      // Show all tasks including completed ones
+      setFilteredTasks(
+        tasks.filter(
+          (task) =>
+            (currentGoalId ? task.goalId === currentGoalId : true) &&
+            !task.isArchived
+        )
+      );
+    } else {
+      // Filter out completed tasks
+      setFilteredTasks(
+        tasks.filter(
+          (task) =>
+            (currentGoalId ? task.goalId === currentGoalId : true) &&
+            !task.isArchived &&
+            !task.completed
+        )
+      );
+    }
+  };
+
   // Wrap provider value in try-catch to prevent unhandled errors
   let providerValue: AppContextType;
   try {
     providerValue = {
       goals,
+      tasks,
       filteredTasks,
       currentGoalId,
       isLoading,
@@ -585,6 +844,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       isFocusMode,
       focusTimer,
       showGamificationView,
+      inactivityThreshold,
+      setInactivityThreshold,
+      inactiveGoals,
+      dismissedInactiveGoals,
+      goalDismissStatus,
       setCurrentGoalId,
       createGoal,
       updateGoal,
@@ -601,15 +865,20 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       refreshData,
       enterFocusMode,
       exitFocusMode,
+      forceInactivityCheck,
+      deleteAllData,
+      resetDatabase,
+      toggleShowCompleted,
+      dismissInactiveGoal,
+      undoDismissInactiveGoal,
+      updateInactivityThreshold,
+      addTask: createTask,
     };
   } catch (error) {
-    // If there's an error creating the provider value, use a safe fallback
-    console.error("Error creating context value:", error);
-    setContextError(error as Error);
-
-    // Provide a minimal fallback value
+    console.error("Error in AppContext:", error);
     providerValue = {
       goals: [],
+      tasks: [],
       filteredTasks: [],
       currentGoalId: null,
       isLoading: false,
@@ -617,6 +886,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       isFocusMode: false,
       focusTimer: null,
       showGamificationView: false,
+      inactivityThreshold: 10,
+      setInactivityThreshold: () => {},
+      inactiveGoals: [],
+      dismissedInactiveGoals: [],
+      goalDismissStatus: false,
       setCurrentGoalId: () => {},
       createGoal: async () => "",
       updateGoal: async () => "",
@@ -636,6 +910,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       refreshData: async () => {},
       enterFocusMode: () => {},
       exitFocusMode: () => {},
+      forceInactivityCheck: async () => [],
+      deleteAllData: async () => {},
+      resetDatabase: async () => {},
+      toggleShowCompleted: () => {},
+      dismissInactiveGoal: () => {},
+      undoDismissInactiveGoal: () => {},
+      updateInactivityThreshold: () => {},
+      addTask: async () => "",
     };
   }
 

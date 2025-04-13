@@ -304,3 +304,228 @@ export const addPrebuiltData = async (): Promise<void> => {
     });
   }
 };
+
+/**
+ * Add demo data specifically for testing goal inactivity feature.
+ * This function adds new goals with various activity levels without duplicate checking.
+ */
+export const addInactivityDemoData = async (): Promise<void> => {
+  const timestamp = Date.now();
+  const dayInMs = 24 * 60 * 60 * 1000;
+
+  // Create goals with various activity levels
+  const inactivityGoals: Goal[] = [
+    {
+      id: `active-goal-${timestamp}`,
+      title: "Active Goal (Recent activity)",
+      createdAt: timestamp - 30 * dayInMs,
+      taskIds: [],
+      order: 100, // High order to place at end
+      streakCounter: 3,
+      lastCompletedDate: new Date().toISOString().split("T")[0],
+      color: "#2dd4bf", // Teal
+      level: 2,
+      xp: 150,
+      lastActiveDate: timestamp - 1 * dayInMs, // Active 1 day ago
+    },
+    {
+      id: `inactive-5-day-${timestamp}`,
+      title: "5-Day Inactive Goal",
+      createdAt: timestamp - 15 * dayInMs,
+      taskIds: [],
+      order: 101,
+      streakCounter: 0,
+      lastCompletedDate: new Date(timestamp - 7 * dayInMs)
+        .toISOString()
+        .split("T")[0],
+      color: "#fdba74", // Orange
+      level: 1,
+      xp: 70,
+      lastActiveDate: timestamp - 6 * dayInMs, // Inactive for 6 days
+    },
+    {
+      id: `inactive-12-day-${timestamp}`,
+      title: "12-Day Inactive Goal",
+      createdAt: timestamp - 25 * dayInMs,
+      taskIds: [],
+      order: 102,
+      streakCounter: 0,
+      lastCompletedDate: new Date(timestamp - 14 * dayInMs)
+        .toISOString()
+        .split("T")[0],
+      color: "#a78bfa", // Purple
+      level: 1,
+      xp: 95,
+      lastActiveDate: timestamp - 12 * dayInMs, // Inactive for 12 days
+    },
+    {
+      id: `inactive-30-day-${timestamp}`,
+      title: "30-Day Abandoned Goal",
+      createdAt: timestamp - 45 * dayInMs,
+      taskIds: [],
+      order: 103,
+      streakCounter: 0,
+      lastCompletedDate: new Date(timestamp - 32 * dayInMs)
+        .toISOString()
+        .split("T")[0],
+      color: "#f87171", // Red
+      level: 1,
+      xp: 30,
+      lastActiveDate: timestamp - 30 * dayInMs, // Inactive for 30 days
+    },
+  ];
+
+  // Add goals
+  for (const goal of inactivityGoals) {
+    await db.addGoal(goal);
+  }
+
+  // Create tasks for these goals
+  const today = new Date().toISOString().split("T")[0];
+  const tomorrow = new Date(timestamp + 1 * dayInMs)
+    .toISOString()
+    .split("T")[0];
+
+  const inactivityTasks: Task[] = [
+    // Active goal tasks
+    {
+      id: `active-task-1-${timestamp}`,
+      title: "Recently completed task",
+      dueDate: today,
+      suggestedDueDate: today,
+      createdAt: timestamp - 2 * dayInMs,
+      goalId: `active-goal-${timestamp}`,
+      tags: ["demo", "active"],
+      completed: true,
+      priority: "medium",
+      isArchived: false,
+      repeatPattern: null,
+      completionTimestamp: timestamp - 1 * dayInMs,
+      xp: 30,
+    },
+    {
+      id: `active-task-2-${timestamp}`,
+      title: "Upcoming task",
+      dueDate: tomorrow,
+      suggestedDueDate: tomorrow,
+      createdAt: timestamp - 1 * dayInMs,
+      goalId: `active-goal-${timestamp}`,
+      tags: ["demo", "upcoming"],
+      completed: false,
+      priority: "high",
+      isArchived: false,
+      repeatPattern: null,
+      completionTimestamp: null,
+      xp: 45,
+    },
+
+    // 5-day inactive goal tasks
+    {
+      id: `inactive-5-task-${timestamp}`,
+      title: "Overdue task (5 days)",
+      dueDate: new Date(timestamp - 3 * dayInMs).toISOString().split("T")[0],
+      suggestedDueDate: new Date(timestamp - 3 * dayInMs)
+        .toISOString()
+        .split("T")[0],
+      createdAt: timestamp - 7 * dayInMs,
+      goalId: `inactive-5-day-${timestamp}`,
+      tags: ["demo", "inactive"],
+      completed: false,
+      priority: "medium",
+      isArchived: false,
+      repeatPattern: null,
+      completionTimestamp: null,
+      xp: 35,
+    },
+
+    // 12-day inactive goal tasks
+    {
+      id: `inactive-12-task-${timestamp}`,
+      title: "Stale task (12 days)",
+      dueDate: new Date(timestamp - 10 * dayInMs).toISOString().split("T")[0],
+      suggestedDueDate: new Date(timestamp - 10 * dayInMs)
+        .toISOString()
+        .split("T")[0],
+      createdAt: timestamp - 15 * dayInMs,
+      goalId: `inactive-12-day-${timestamp}`,
+      tags: ["demo", "stale"],
+      completed: false,
+      priority: "high",
+      isArchived: false,
+      repeatPattern: null,
+      completionTimestamp: null,
+      xp: 50,
+    },
+
+    // 30-day abandoned goal tasks
+    {
+      id: `inactive-30-task-${timestamp}`,
+      title: "Abandoned task (30 days)",
+      dueDate: new Date(timestamp - 25 * dayInMs).toISOString().split("T")[0],
+      suggestedDueDate: new Date(timestamp - 25 * dayInMs)
+        .toISOString()
+        .split("T")[0],
+      createdAt: timestamp - 35 * dayInMs,
+      goalId: `inactive-30-day-${timestamp}`,
+      tags: ["demo", "abandoned"],
+      completed: false,
+      priority: "low",
+      isArchived: false,
+      repeatPattern: null,
+      completionTimestamp: null,
+      xp: 25,
+    },
+  ];
+
+  // Add tasks
+  for (const task of inactivityTasks) {
+    await db.addTask(task);
+  }
+
+  // Create history entries for the active goal
+  const activeGoalId = `active-goal-${timestamp}`;
+
+  // Recent activity for the active goal
+  for (let i = 1; i <= 5; i++) {
+    if (i === 2) continue; // Skip one day to make the streak realistic
+
+    await db.addHistoryEntry({
+      id: crypto.randomUUID(),
+      type: "complete",
+      entityId: `active-task-1-${timestamp}`,
+      entityType: "task",
+      timestamp: timestamp - i * dayInMs,
+      details: { title: "Recently completed task" },
+    });
+  }
+
+  // Add history for 5-day inactive goal - activity was 6 days ago
+  await db.addHistoryEntry({
+    id: crypto.randomUUID(),
+    type: "edit",
+    entityId: `inactive-5-day-${timestamp}`,
+    entityType: "goal",
+    timestamp: timestamp - 6 * dayInMs,
+    details: { title: "5-Day Inactive Goal", action: "Edit title" },
+  });
+
+  // Add history for 12-day inactive goal - activity was 12 days ago
+  await db.addHistoryEntry({
+    id: crypto.randomUUID(),
+    type: "add",
+    entityId: `inactive-12-task-${timestamp}`,
+    entityType: "task",
+    timestamp: timestamp - 12 * dayInMs,
+    details: { title: "Stale task (12 days)" },
+  });
+
+  // Add history for 30-day abandoned goal - activity was 30 days ago
+  await db.addHistoryEntry({
+    id: crypto.randomUUID(),
+    type: "add",
+    entityId: `inactive-30-task-${timestamp}`,
+    entityType: "task",
+    timestamp: timestamp - 30 * dayInMs,
+    details: { title: "Abandoned task (30 days)" },
+  });
+};

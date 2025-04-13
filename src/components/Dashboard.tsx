@@ -34,8 +34,9 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { addPrebuiltData } from "@/lib/prebuiltData";
+import { addPrebuiltData, addInactivityDemoData } from "@/lib/prebuiltData";
 import { toast } from "@/hooks/use-toast";
+import { GoalInactivityAlerts } from "./GoalInactivityAlerts";
 
 interface AnalyticsData {
   tasksCompletedToday: number;
@@ -137,10 +138,11 @@ export function Dashboard() {
               onClick={async () => {
                 try {
                   await addPrebuiltData();
+                  await addInactivityDemoData();
                   await refreshData();
                   toast({
                     title: "Success",
-                    description: "Additional demo data has been added!",
+                    description: "Demo data has been added!",
                   });
                 } catch (error) {
                   console.error("Failed to add demo data:", error);
@@ -167,6 +169,9 @@ export function Dashboard() {
             </Button>
           </div>
         </div>
+
+        {/* Goal Inactivity Alerts */}
+        <GoalInactivityAlerts />
 
         {/* Stats Cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4 mb-4 sm:mb-8">

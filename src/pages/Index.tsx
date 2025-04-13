@@ -4,14 +4,65 @@ import { Sidebar } from "@/components/Sidebar";
 import { TaskList } from "@/components/TaskList";
 import { Dashboard } from "@/components/Dashboard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { BarChart3, ListTodo } from "lucide-react";
+import {
+  BarChart3,
+  ListTodo,
+  Database,
+  Plus,
+  Target,
+  CheckSquare,
+  RefreshCw,
+  AlertTriangle,
+} from "lucide-react";
 import { FocusMode } from "@/components/FocusMode";
 import { cn } from "@/lib/utils";
 import { GamificationView } from "@/components/GamificationView";
+import { Button } from "@/components/ui/button";
+import { addPrebuiltData, addInactivityDemoData } from "@/lib/prebuiltData";
+import { toast } from "@/hooks/use-toast";
+
+// Function to reset the database in case of corruption
+const resetDatabase = async (): Promise<void> => {
+  try {
+    console.log("Attempting to delete database");
+    // Delete the entire database
+    const deleteRequest = window.indexedDB.deleteDatabase("achievo-db");
+
+    deleteRequest.onsuccess = async () => {
+      console.log("Database deleted successfully");
+      toast({
+        title: "Database Reset",
+        description: "Database has been reset. Reloading page...",
+      });
+
+      // Reload the page after a short delay
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+    };
+
+    deleteRequest.onerror = () => {
+      console.error("Failed to delete database:", deleteRequest.error);
+      toast({
+        title: "Error",
+        description: "Failed to reset database. Try refreshing the page.",
+        variant: "destructive",
+      });
+    };
+  } catch (error) {
+    console.error("Error resetting database:", error);
+    toast({
+      title: "Error",
+      description: "Failed to reset database. Try refreshing the page.",
+      variant: "destructive",
+    });
+  }
+};
 
 const Index = () => {
   const [activeTab, setActiveTab] = useState<"tasks" | "dashboard">("tasks");
   const [isMobile, setIsMobile] = useState(false);
+  const [showEmergencyReset, setShowEmergencyReset] = useState(false);
 
   // Get context safely
   const appContext = useApp();
@@ -19,6 +70,84 @@ const Index = () => {
   // Default value if context is not available
   const isFocusMode = appContext?.isFocusMode || false;
   const showGamificationView = appContext?.showGamificationView || false;
+  const refreshData = appContext?.refreshData;
+  const createGoal = appContext?.createGoal;
+  const createTask = appContext?.createTask;
+
+  // Handle adding demo data
+  const handleAddDemoData = async () => {
+    try {
+      await addPrebuiltData();
+      await addInactivityDemoData();
+      if (refreshData) await refreshData();
+      toast({
+        title: "Success",
+        description: "Demo data has been added!",
+      });
+    } catch (error) {
+      console.error("Failed to add demo data:", error);
+      toast({
+        title: "Error",
+        description: "Failed to add demo data.",
+        variant: "destructive",
+      });
+      // Show emergency reset if there was an error
+      setShowEmergencyReset(true);
+    }
+  };
+
+  // Handle creating a test goal
+  const handleCreateTestGoal = async () => {
+    try {
+      if (createGoal) {
+        const goalId = await createGoal("Test Goal");
+        if (refreshData) await refreshData();
+        toast({
+          title: "Success",
+          description: "Test goal has been created!",
+        });
+      }
+    } catch (error) {
+      console.error("Failed to create test goal:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create test goal.",
+        variant: "destructive",
+      });
+      // Show emergency reset if there was an error
+      setShowEmergencyReset(true);
+    }
+  };
+
+  // Handle creating a test task
+  const handleCreateTestTask = async () => {
+    try {
+      if (createTask) {
+        const today = new Date().toISOString().split("T")[0];
+        const taskId = await createTask({
+          title: "Test Task",
+          dueDate: today,
+          suggestedDueDate: today,
+          priority: "medium",
+          tags: ["test"],
+        });
+        if (refreshData) await refreshData();
+        toast({
+          title: "Success",
+          description: "Test task has been created!",
+        });
+      }
+    } catch (error) {
+      console.error("Failed to create test task:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create test task.",
+        variant: "destructive",
+      });
+      // Show emergency reset if there was an error
+      setShowEmergencyReset(true);
+    }
+  };
 
   // Check for mobile screen
   useEffect(() => {
@@ -51,6 +180,46 @@ const Index = () => {
         {/* Only show sidebar when not in focus mode */}
         <Sidebar />
         <div className="flex-1 overflow-auto">
+          <div className="p-4 flex flex-wrap gap-2 justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={handleAddDemoData}
+            >
+              <Database size={16} />
+              <span>Add Demo Data</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={handleCreateTestGoal}
+            >
+              <Target size={16} />
+              <span>Create Test Goal</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={handleCreateTestTask}
+            >
+              <CheckSquare size={16} />
+              <span>Create Test Task</span>
+            </Button>
+            {showEmergencyReset && (
+              <Button
+                variant="destructive"
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={resetDatabase}
+              >
+                <AlertTriangle size={16} />
+                <span>Reset Database</span>
+              </Button>
+            )}
+          </div>
           <GamificationView />
         </div>
       </div>
@@ -68,6 +237,58 @@ const Index = () => {
       {!isFocusMode && <Sidebar />}
 
       <div className="flex-1 flex flex-col overflow-hidden">
+        {!isFocusMode && (
+          <div className="p-2 flex flex-wrap gap-2 justify-end">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={handleAddDemoData}
+            >
+              <Database size={16} />
+              <span>Add Demo Data</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={handleCreateTestGoal}
+            >
+              <Target size={16} />
+              <span>Create Goal</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={handleCreateTestTask}
+            >
+              <CheckSquare size={16} />
+              <span>Create Task</span>
+            </Button>
+            {showEmergencyReset && (
+              <Button
+                variant="destructive"
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={resetDatabase}
+              >
+                <AlertTriangle size={16} />
+                <span>Reset Database</span>
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => setShowEmergencyReset((prev) => !prev)}
+            >
+              <RefreshCw size={16} />
+              <span>Show Reset Option</span>
+            </Button>
+          </div>
+        )}
+
         <Tabs
           defaultValue="tasks"
           value={activeTab}

@@ -39,6 +39,9 @@ export interface Goal {
   xp?: number;
   prestigeLevel?: number; // Number of times the goal has prestiged
   badges?: string[]; // IDs of earned badges
+  isArchived?: boolean;
+  isPaused?: boolean;
+  lastActiveDate?: number; // Timestamp of last activity
 }
 
 export interface Task {
@@ -80,29 +83,57 @@ let dbPromise: Promise<IDBPDatabase<AchievoDB>> | null = null;
 // Initialize the database
 const initDB = async () => {
   if (!dbPromise) {
-    dbPromise = openDB<AchievoDB>("achievo-db", 1, {
-      upgrade(db) {
-        // Create stores if they don't exist
-        if (!db.objectStoreNames.contains("goals")) {
-          const goalStore = db.createObjectStore("goals", { keyPath: "id" });
-          goalStore.createIndex("by-order", "order");
-        }
+    try {
+      console.log("Initializing database...");
+      dbPromise = openDB<AchievoDB>("achievo-db", 1, {
+        upgrade(db) {
+          console.log("Upgrading database schema...");
+          // Create stores if they don't exist
+          if (!db.objectStoreNames.contains("goals")) {
+            console.log("Creating goals store");
+            const goalStore = db.createObjectStore("goals", { keyPath: "id" });
+            goalStore.createIndex("by-order", "order");
+          }
 
-        if (!db.objectStoreNames.contains("tasks")) {
-          const taskStore = db.createObjectStore("tasks", { keyPath: "id" });
-          taskStore.createIndex("by-goalId", "goalId");
-          taskStore.createIndex("by-dueDate", "dueDate");
-          taskStore.createIndex("by-completed", "completed");
-        }
+          if (!db.objectStoreNames.contains("tasks")) {
+            console.log("Creating tasks store");
+            const taskStore = db.createObjectStore("tasks", { keyPath: "id" });
+            taskStore.createIndex("by-goalId", "goalId");
+            taskStore.createIndex("by-dueDate", "dueDate");
+            taskStore.createIndex("by-completed", "completed");
+          }
 
-        if (!db.objectStoreNames.contains("history")) {
-          const historyStore = db.createObjectStore("history", {
-            keyPath: "id",
-          });
-          historyStore.createIndex("by-timestamp", "timestamp");
-        }
-      },
-    });
+          if (!db.objectStoreNames.contains("history")) {
+            console.log("Creating history store");
+            const historyStore = db.createObjectStore("history", {
+              keyPath: "id",
+            });
+            historyStore.createIndex("by-timestamp", "timestamp");
+          }
+          console.log("Database schema upgrade complete");
+        },
+        blocked() {
+          console.warn(
+            "Database opening blocked - another tab has the database open"
+          );
+        },
+        blocking() {
+          console.warn("This tab is blocking a database upgrade");
+        },
+        terminated() {
+          console.error("Database connection was terminated unexpectedly");
+          dbPromise = null; // Reset so we can try again
+        },
+      });
+      console.log("Database initialization complete");
+    } catch (error) {
+      console.error("Failed to initialize database:", error);
+      dbPromise = null;
+      throw new Error(
+        "Database initialization failed: " +
+          (error instanceof Error ? error.message : String(error))
+      );
+    }
   }
   return dbPromise;
 };
@@ -111,72 +142,134 @@ const initDB = async () => {
 export const db = {
   // Goal operations
   async getGoals(): Promise<Goal[]> {
-    const db = await initDB();
-    return db.getAllFromIndex("goals", "by-order");
+    try {
+      const db = await initDB();
+      return db.getAllFromIndex("goals", "by-order");
+    } catch (error) {
+      console.error("Error in getGoals:", error);
+      return [];
+    }
   },
 
   async getGoal(id: string): Promise<Goal | undefined> {
-    const db = await initDB();
-    return db.get("goals", id);
+    try {
+      const db = await initDB();
+      return db.get("goals", id);
+    } catch (error) {
+      console.error(`Error in getGoal(${id}):`, error);
+      return undefined;
+    }
   },
 
   async addGoal(goal: Goal): Promise<string> {
-    const db = await initDB();
-    await db.add("goals", goal);
-    return goal.id;
+    try {
+      console.log("Adding goal:", goal);
+      const db = await initDB();
+      await db.add("goals", goal);
+      console.log("Goal added successfully:", goal.id);
+      return goal.id;
+    } catch (error) {
+      console.error("Error in addGoal:", error);
+      throw new Error(
+        "Failed to add goal: " +
+          (error instanceof Error ? error.message : String(error))
+      );
+    }
   },
 
   async updateGoal(goal: Goal): Promise<string> {
-    const db = await initDB();
-    await db.put("goals", goal);
-    return goal.id;
+    try {
+      const db = await initDB();
+      await db.put("goals", goal);
+      return goal.id;
+    } catch (error) {
+      console.error("Error in updateGoal:", error);
+      throw new Error(
+        "Failed to update goal: " +
+          (error instanceof Error ? error.message : String(error))
+      );
+    }
   },
 
   async deleteGoal(id: string): Promise<void> {
-    const db = await initDB();
-    await db.delete("goals", id);
+    try {
+      const db = await initDB();
+      await db.delete("goals", id);
+    } catch (error) {
+      console.error(`Error in deleteGoal(${id}):`, error);
+      throw new Error(
+        "Failed to delete goal: " +
+          (error instanceof Error ? error.message : String(error))
+      );
+    }
   },
 
   // Task operations
   async getTasks(): Promise<Task[]> {
-    const db = await initDB();
-    return db.getAll("tasks");
+    try {
+      const db = await initDB();
+      return db.getAll("tasks");
+    } catch (error) {
+      console.error("Error in getTasks:", error);
+      return [];
+    }
   },
 
   async getTasksByGoal(goalId: string): Promise<Task[]> {
-    const db = await initDB();
-    return db.getAllFromIndex("tasks", "by-goalId", goalId);
+    try {
+      const db = await initDB();
+      return db.getAllFromIndex("tasks", "by-goalId", goalId);
+    } catch (error) {
+      console.error(`Error in getTasksByGoal(${goalId}):`, error);
+      return [];
+    }
   },
 
   async getTask(id: string): Promise<Task | undefined> {
-    const db = await initDB();
-    return db.get("tasks", id);
+    try {
+      const db = await initDB();
+      return db.get("tasks", id);
+    } catch (error) {
+      console.error(`Error in getTask(${id}):`, error);
+      return undefined;
+    }
   },
 
   async addTask(task: Task): Promise<string> {
-    const db = await initDB();
-    await db.add("tasks", task);
+    try {
+      console.log("Adding task:", task);
+      const db = await initDB();
+      await db.add("tasks", task);
+      console.log("Task added successfully:", task.id);
 
-    // Update goal's taskIds if the task is assigned to a goal
-    if (task.goalId) {
-      const goal = await this.getGoal(task.goalId);
-      if (goal) {
-        goal.taskIds.push(task.id);
-        await this.updateGoal(goal);
+      // Update goal's taskIds if the task is assigned to a goal
+      if (task.goalId) {
+        const goal = await this.getGoal(task.goalId);
+        if (goal) {
+          goal.taskIds = goal.taskIds || []; // Ensure taskIds exists
+          goal.taskIds.push(task.id);
+          await this.updateGoal(goal);
+        }
       }
+
+      // Add to history
+      await this.addHistoryEntry({
+        id: crypto.randomUUID(),
+        type: "add",
+        entityId: task.id,
+        entityType: "task",
+        timestamp: Date.now(),
+        details: { title: task.title },
+      });
+
+      return task.id;
+    } catch (error) {
+      console.error("Error in addTask:", error);
+      throw new Error(
+        "Failed to add task: " +
+          (error instanceof Error ? error.message : String(error))
+      );
     }
-
-    // Add to history
-    await this.addHistoryEntry({
-      id: crypto.randomUUID(),
-      type: "add",
-      entityId: task.id,
-      entityType: "task",
-      timestamp: Date.now(),
-      details: { title: task.title },
-    });
-
-    return task.id;
   },
 
   async updateTask(task: Task): Promise<string> {
@@ -564,6 +657,26 @@ export const db = {
         timestamp: timestamp,
         details: { title: "Learn a new coding skill" },
       });
+    }
+  },
+
+  /**
+   * Clear all data from the database.
+   * This is useful for testing and debugging.
+   */
+  clearAllData: async (): Promise<void> => {
+    try {
+      const db = await openDB();
+
+      // Clear all stores
+      await db.clear("goals");
+      await db.clear("tasks");
+      await db.clear("history");
+
+      console.log("All data cleared from database");
+    } catch (error) {
+      console.error("Failed to clear database:", error);
+      throw error;
     }
   },
 };

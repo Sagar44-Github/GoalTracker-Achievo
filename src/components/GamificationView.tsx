@@ -22,233 +22,187 @@ import {
   BarChart3,
   Target,
   Flame,
+  X,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { Button } from "@/components/ui/button";
+import { GoalInactivitySettings } from "./GoalInactivitySettings";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export function GamificationView() {
-  const { goals, tasks } = useApp();
-  const [totalXP, setTotalXP] = useState(0);
-  const [activeTab, setActiveTab] = useState("overview");
+  const { goals, toggleGamificationView } = useApp();
+  const [selectedGoalId, setSelectedGoalId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<string>("badges");
 
-  // Calculate total user XP across all goals
+  // Get the selected goal from the goals list
+  const selectedGoal = selectedGoalId
+    ? goals.find((g) => g.id === selectedGoalId)
+    : goals.length > 0
+    ? goals[0]
+    : null;
+
   useEffect(() => {
-    if (!goals) return;
-
-    const xpSum = goals.reduce((sum, goal) => sum + (goal.xp || 0), 0);
-    setTotalXP(xpSum);
-  }, [goals]);
-
-  // Calculate user level based on total XP
-  const userLevel = calculateLevel(totalXP);
-
-  // Find the highest streak among all goals
-  const highestStreak = goals?.length
-    ? Math.max(...goals.map((goal) => goal.streakCounter || 0))
-    : 0;
-
-  // Count completed tasks
-  const completedTasks = tasks?.filter((task) => task.completed)?.length || 0;
+    if (goals.length > 0 && !selectedGoalId) {
+      setSelectedGoalId(goals[0].id);
+    }
+  }, [goals, selectedGoalId]);
 
   return (
-    <div className="container max-w-5xl mx-auto py-6 px-4 md:px-6">
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-2">
-            <Trophy className="w-7 h-7 text-yellow-500" />
-            Achievements & Progress
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Track your progress and earn badges as you complete tasks
-          </p>
+    <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm animate-in fade-in">
+      <div className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-5xl translate-x-[-50%] translate-y-[-50%] gap-4 p-6 shadow-lg duration-200 sm:rounded-lg md:w-full overflow-y-auto max-h-[90vh] bg-background border">
+        <div className="flex flex-col gap-6">
+          <div className="flex justify-between items-center">
+            <h2 className="text-2xl font-bold">Achievement Center</h2>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => toggleGamificationView(false)}
+            >
+              <X size={18} />
+            </Button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="md:col-span-2">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-lg font-semibold">Goal Achievements</h3>
+                  <p className="text-muted-foreground">
+                    Track your progress and earn badges
+                  </p>
+                </div>
+
+                <div className="mt-2 md:mt-0">
+                  <Select
+                    value={selectedGoalId || ""}
+                    onValueChange={(value) => setSelectedGoalId(value)}
+                  >
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Select a goal" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {goals.map((goal) => (
+                        <SelectItem key={goal.id} value={goal.id}>
+                          {goal.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <Tabs value={activeTab} onValueChange={setActiveTab}>
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="badges">Badges</TabsTrigger>
+                  <TabsTrigger value="stats">Stats</TabsTrigger>
+                  <TabsTrigger value="history">History</TabsTrigger>
+                </TabsList>
+                <TabsContent value="badges">
+                  <BadgeDisplay goal={selectedGoal} />
+                </TabsContent>
+                <TabsContent value="stats">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Goal Statistics</CardTitle>
+                      <CardDescription>
+                        Your progress and achievements for this goal
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-4">
+                        {selectedGoal && (
+                          <>
+                            <div>
+                              <h4 className="font-medium mb-2">
+                                Task Completion Rate
+                              </h4>
+                              <div className="flex justify-between text-sm mb-1">
+                                <span>
+                                  {selectedGoal.stats?.completed || 0}/
+                                  {selectedGoal.stats?.total || 0} Tasks
+                                </span>
+                                <span>
+                                  {selectedGoal.stats?.percentage || 0}%
+                                </span>
+                              </div>
+                              <Progress
+                                value={selectedGoal.stats?.percentage || 0}
+                                className="h-2"
+                              />
+                            </div>
+
+                            <div>
+                              <h4 className="font-medium mb-2">
+                                Consecutive Days Streak
+                              </h4>
+                              <div className="flex items-center">
+                                <Flame className="text-orange-500 mr-2" />
+                                <span className="text-xl font-bold">
+                                  {selectedGoal.stats?.streak || 0}
+                                </span>
+                                <span className="ml-1 text-muted-foreground">
+                                  days
+                                </span>
+                              </div>
+                            </div>
+
+                            <div>
+                              <h4 className="font-medium mb-2">
+                                Level Progress
+                              </h4>
+                              <div className="flex justify-between text-sm mb-1">
+                                <span>Level {selectedGoal.level || 1}</span>
+                                <span>
+                                  {selectedGoal.xp || 0}/
+                                  {(selectedGoal.level || 1) * 100} XP
+                                </span>
+                              </div>
+                              <Progress
+                                value={
+                                  ((selectedGoal.xp || 0) /
+                                    ((selectedGoal.level || 1) * 100)) *
+                                  100
+                                }
+                                className="h-2"
+                              />
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+                <TabsContent value="history">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Activity History</CardTitle>
+                      <CardDescription>
+                        Your recent activities for this goal
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <p>History will be shown here...</p>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+              </Tabs>
+            </div>
+
+            <div className="space-y-6">
+              <GoalLevelDisplay goal={selectedGoal} />
+
+              {/* Add Goal Inactivity Settings */}
+              <GoalInactivitySettings />
+            </div>
+          </div>
         </div>
       </div>
-
-      {/* User Level Card */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <Card className="col-span-1">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Star className="w-5 h-5 text-yellow-500" />
-              User Level
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center">
-              <div className="inline-flex items-center justify-center rounded-full bg-primary/10 p-4 mb-2">
-                <span className="text-4xl font-bold text-primary">
-                  {userLevel.level}
-                </span>
-              </div>
-              <h3 className="font-semibold">Level {userLevel.level}</h3>
-              <div className="mt-4 space-y-2">
-                <div className="flex justify-between text-xs">
-                  <span>XP: {userLevel.currentLevelXP}</span>
-                  <span>Next: {userLevel.nextLevelXP}</span>
-                </div>
-                <Progress value={userLevel.xpProgress * 100} className="h-2" />
-              </div>
-              <p className="text-sm text-muted-foreground mt-4">
-                Total XP: {totalXP}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="col-span-1">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Flame className="w-5 h-5 text-orange-500" />
-              Current Streak
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center">
-              <div className="inline-flex items-center justify-center rounded-full bg-orange-500/10 p-4 mb-2">
-                <span className="text-4xl font-bold text-orange-500">
-                  {highestStreak}
-                </span>
-              </div>
-              <h3 className="font-semibold">Day Streak</h3>
-              <p className="text-sm text-muted-foreground mt-4">
-                {highestStreak > 0
-                  ? `You're on a ${highestStreak} day streak!`
-                  : "Start your streak by completing tasks today!"}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="col-span-1">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Target className="w-5 h-5 text-green-500" />
-              Tasks Completed
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-center">
-              <div className="inline-flex items-center justify-center rounded-full bg-green-500/10 p-4 mb-2">
-                <span className="text-4xl font-bold text-green-500">
-                  {completedTasks}
-                </span>
-              </div>
-              <h3 className="font-semibold">Completed Tasks</h3>
-              <p className="text-sm text-muted-foreground mt-4">
-                {completedTasks > 0
-                  ? `Great job! You've completed ${completedTasks} tasks.`
-                  : "Complete tasks to see your progress here."}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Tabs for different views */}
-      <Tabs
-        defaultValue="overview"
-        value={activeTab}
-        onValueChange={setActiveTab}
-        className="mb-6"
-      >
-        <TabsList className="mb-4">
-          <TabsTrigger value="overview" className="flex items-center gap-1">
-            <BarChart3 className="w-4 h-4" />
-            <span>Overview</span>
-          </TabsTrigger>
-          <TabsTrigger value="badges" className="flex items-center gap-1">
-            <Medal className="w-4 h-4" />
-            <span>All Badges</span>
-          </TabsTrigger>
-          <TabsTrigger value="goals" className="flex items-center gap-1">
-            <Target className="w-4 h-4" />
-            <span>Goal Progress</span>
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Overview Tab */}
-        <TabsContent value="overview" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {goals?.slice(0, 4).map((goal) => (
-              <BadgeDisplay key={goal.id} goalId={goal.id} />
-            ))}
-          </div>
-        </TabsContent>
-
-        {/* Badges Tab */}
-        <TabsContent value="badges" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>All Available Badges</CardTitle>
-              <CardDescription>
-                Complete special tasks to earn these badges
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {BADGES.map((badge) => (
-                  <div
-                    key={badge.id}
-                    className="border rounded-lg p-4 text-center"
-                  >
-                    <div className="text-3xl mb-2">{badge.icon}</div>
-                    <h4 className="font-semibold text-sm mb-1">{badge.name}</h4>
-                    <p className="text-xs text-muted-foreground">
-                      {badge.description}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Goals Tab */}
-        <TabsContent value="goals" className="space-y-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {goals?.map((goal) => (
-              <Card key={goal.id}>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">{goal.title}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    <div>
-                      <div className="flex justify-between mb-1 text-sm">
-                        <span>Level {goal.level || 1}</span>
-                        <span>XP: {goal.xp || 0}</span>
-                      </div>
-                      <Progress
-                        value={calculateLevel(goal.xp || 0).xpProgress * 100}
-                        className="h-2"
-                      />
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <div className="bg-orange-500/10 rounded-full p-1">
-                        <Flame className="w-4 h-4 text-orange-500" />
-                      </div>
-                      <span className="text-sm">
-                        Streak: {goal.streakCounter || 0} days
-                      </span>
-                    </div>
-
-                    {goal.prestigeLevel ? (
-                      <div className="flex items-center gap-2">
-                        <div className="bg-purple-500/10 rounded-full p-1">
-                          <Award className="w-4 h-4 text-purple-500" />
-                        </div>
-                        <span className="text-sm">
-                          Prestige Level: {goal.prestigeLevel}
-                        </span>
-                      </div>
-                    ) : null}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-      </Tabs>
     </div>
   );
 }
