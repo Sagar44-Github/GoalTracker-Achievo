@@ -7,7 +7,10 @@ import React, {
 } from "react";
 import { Goal, Task, HistoryEntry, db } from "@/lib/db";
 import { toast } from "@/hooks/use-toast";
-import { applyTaskCompletionXP } from "@/lib/gamificationUtils";
+import {
+  applyTaskCompletionXP,
+  checkEarnedBadges,
+} from "@/lib/gamificationUtils";
 import { addPrebuiltData, addInactivityDemoData } from "@/lib/prebuiltData";
 import { getInactiveGoals } from "@/lib/goalUtils";
 
@@ -31,6 +34,7 @@ interface AppContextType {
 
   // Methods
   setCurrentGoalId: (goalId: string | null) => void;
+  setGoalWithLoading: (goalId: string | null) => void;
   createGoal: (title: string) => Promise<string>;
   updateGoal: (goal: Goal) => Promise<string>;
   deleteGoal: (id: string) => Promise<void>;
@@ -64,6 +68,9 @@ interface AppContextType {
 
   // Task methods
   addTask: (taskData: Partial<Task>) => Promise<string>;
+
+  // New method
+  forceCheckBadges: () => Promise<void>;
 }
 
 // Create the context with a default value
@@ -91,7 +98,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     useState<NodeJS.Timeout | null>(null);
 
   // Gamification view state
-  const [showGamificationView, setShowGamificationView] = useState(false);
+  const [showGamificationView, setShowGamificationView] = useState(() => {
+    // Initialize from localStorage or default to false
+    const savedGamificationState = localStorage.getItem(
+      "achievo-gamification-view"
+    );
+    return savedGamificationState ? savedGamificationState === "true" : false;
+  });
 
   // Error handling for the context
   const [contextError, setContextError] = useState<Error | null>(null);
@@ -236,24 +249,62 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   // Function to apply task filter
-  const applyTaskFilter = (tasksToFilter = tasks) => {
-    if (currentGoalId) {
-      // Filter by current goal
-      setFilteredTasks(
-        tasksToFilter.filter(
-          (task) => task.goalId === currentGoalId && !task.isArchived
-        )
-      );
-    } else {
-      // Show all non-archived tasks
+  const applyTaskFilter = (tasksToFilter = tasks, goalId = currentGoalId) => {
+    try {
+      console.log(`Filtering tasks for goal ${goalId || "all"}`);
+
+      if (goalId) {
+        // Filter by specific goal
+        setFilteredTasks(
+          tasksToFilter.filter(
+            (task) => task.goalId === goalId && !task.isArchived
+          )
+        );
+      } else {
+        // Show all non-archived tasks
+        setFilteredTasks(tasksToFilter.filter((task) => !task.isArchived));
+      }
+    } catch (error) {
+      console.error("Error applying task filter:", error);
+      // Fallback to showing all tasks
       setFilteredTasks(tasksToFilter.filter((task) => !task.isArchived));
     }
   };
 
   // Update filtered tasks when tasks or currentGoalId changes
   useEffect(() => {
-    applyTaskFilter();
+    // Debounce to prevent excessive re-renders
+    const timeoutId = setTimeout(() => {
+      applyTaskFilter();
+    }, 100);
+
+    return () => clearTimeout(timeoutId);
   }, [tasks, currentGoalId]);
+
+  // Set current goal with optimized loading state
+  const setGoalWithLoading = (goalId: string | null) => {
+    // Skip if already on this goal
+    if (goalId === currentGoalId) return;
+
+    // Set loading state
+    setIsLoading(true);
+
+    // Update the goal with a slight delay to allow the UI to show loading state
+    setTimeout(() => {
+      setCurrentGoalId(goalId);
+
+      // Apply filter immediately for this goal to reduce perceived delay
+      const goalTasks = tasks.filter(
+        (task) => !task.isArchived && (goalId ? task.goalId === goalId : true)
+      );
+      setFilteredTasks(goalTasks);
+
+      // End loading state after a short delay
+      setTimeout(() => {
+        setIsLoading(false);
+      }, 100);
+    }, 10);
+  };
 
   // Filter tasks by specific criteria
   const filterTasks = (filter: "all" | "today" | "completed" | "archived") => {
@@ -346,143 +397,294 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const updateTask = async (task: Task): Promise<string> => {
-    const taskId = await db.updateTask(task);
+    try {
+      console.log("Updating task:", task);
+      const db = await initDB();
 
-    // Update the goal's lastActiveDate if it has one
-    if (task.goalId) {
-      const goal = await db.getGoal(task.goalId);
-      if (goal) {
-        await db.updateGoal({
-          ...goal,
-          lastActiveDate: Date.now(),
-        });
+      // Get the old task to compare changes
+      const oldTask = await this.getTask(task.id);
+      if (!oldTask) {
+        throw new Error(`Task with id ${task.id} not found`);
       }
-    }
 
-    await refreshData();
-    return taskId;
+      // Update the task
+      await db.put("tasks", task);
+      console.log("Task updated successfully:", task.id);
+
+      // If goal assignment changed, update both goals
+      if (oldTask.goalId !== task.goalId) {
+        console.log(
+          "Goal assignment changed from",
+          oldTask.goalId,
+          "to",
+          task.goalId
+        );
+
+        // Remove from old goal
+        if (oldTask.goalId) {
+          const oldGoal = await this.getGoal(oldTask.goalId);
+          if (oldGoal) {
+            oldGoal.taskIds = oldGoal.taskIds.filter((id) => id !== task.id);
+            await this.updateGoal(oldGoal);
+          }
+        }
+
+        // Add to new goal
+        if (task.goalId) {
+          const newGoal = await this.getGoal(task.goalId);
+          if (newGoal) {
+            // Ensure taskIds is initialized
+            newGoal.taskIds = newGoal.taskIds || [];
+            if (!newGoal.taskIds.includes(task.id)) {
+              newGoal.taskIds.push(task.id);
+              await this.updateGoal(newGoal);
+            }
+          }
+        }
+      }
+
+      // Add to history if task was completed
+      if (!oldTask.completed && task.completed) {
+        await this.addHistoryEntry({
+          id: crypto.randomUUID(),
+          type: "complete",
+          entityId: task.id,
+          entityType: "task",
+          timestamp: Date.now(),
+          details: { title: task.title },
+        });
+
+        // Update goal streak if task was completed
+        if (task.goalId) {
+          await this.updateGoalStreakOnTaskCompletion(task.goalId);
+        }
+      }
+
+      // Update the goal's lastActiveDate if it has one
+      if (task.goalId) {
+        const goal = await this.getGoal(task.goalId);
+        if (goal) {
+          await this.updateGoal({
+            ...goal,
+            lastActiveDate: Date.now(),
+          });
+        }
+      }
+
+      // Return the task ID without waiting for refreshData
+      const taskId = task.id;
+
+      // Refresh data in the background
+      refreshData().catch((err) =>
+        console.error("Error refreshing data after task update:", err)
+      );
+
+      return taskId;
+    } catch (error) {
+      console.error("Error in db.updateTask:", error);
+      throw new Error(
+        "Failed to update task: " +
+          (error instanceof Error ? error.message : String(error))
+      );
+    }
   };
 
   const completeTask = async (id: string): Promise<void> => {
-    const task = await db.getTask(id);
-    if (!task) return;
+    try {
+      console.log("Completing task with ID:", id);
 
-    const now = Date.now();
-    const isCompleted = !task.completed;
+      // Get task with retry logic
+      let task = null;
+      let retries = 0;
+      const maxRetries = 3;
 
-    // Toggle completion status
-    const updatedTask = {
-      ...task,
-      completed: isCompleted,
-      completionTimestamp: isCompleted ? now : null,
-    };
+      while (!task && retries < maxRetries) {
+        try {
+          task = await db.getTask(id);
+          if (!task) {
+            throw new Error(`Task not found: ${id}`);
+          }
+        } catch (err) {
+          retries++;
+          console.warn(`Failed to get task on attempt ${retries}:`, err);
 
-    await db.updateTask(updatedTask);
+          if (retries >= maxRetries) {
+            throw err;
+          }
 
-    // Add to history
-    await db.addHistoryEntry({
-      id: crypto.randomUUID(),
-      type: "complete",
-      entityId: task.id,
-      entityType: "task",
-      timestamp: now,
-      details: { title: task.title, completed: isCompleted },
-    });
-
-    // Update the goal's lastActiveDate if it has one
-    if (task.goalId) {
-      const goal = await db.getGoal(task.goalId);
-      if (goal) {
-        await db.updateGoal({
-          ...goal,
-          lastActiveDate: now,
-        });
-
-        // If the task is completed, update the goal's streak counter
-        if (isCompleted) {
-          await db.updateGoalStreakOnTaskCompletion(task.goalId);
+          // Wait before retrying
+          await new Promise((resolve) => setTimeout(resolve, 300 * retries));
         }
       }
-    }
 
-    // If the task is completed, apply the gamification effects
-    if (isCompleted) {
-      const xpEarned = await applyTaskCompletionXP(updatedTask);
-
-      // Show a toast notification with XP earned
-      toast({
-        title: `Task ${isCompleted ? "completed" : "uncompleted"}!`,
-        description: isCompleted
-          ? `You earned ${xpEarned} XP for completing "${task.title}"`
-          : `"${task.title}" marked as not completed`,
-      });
-    } else {
-      toast({
-        title: "Task marked incomplete",
-        description: `"${task.title}" has been re-opened`,
-      });
-    }
-
-    // Handle task repetition
-    if (
-      isCompleted &&
-      task.repeatPattern &&
-      (task.repeatPattern.type === "daily" ||
-        task.repeatPattern.type === "weekly" ||
-        task.repeatPattern.type === "monthly")
-    ) {
-      // Create a new task based on the repeat pattern
-      let newDueDate: string | null = null;
-
-      const currentDate = task.dueDate ? new Date(task.dueDate) : new Date();
-
-      switch (task.repeatPattern.type) {
-        case "daily":
-          currentDate.setDate(
-            currentDate.getDate() + task.repeatPattern.interval
-          );
-          newDueDate = currentDate.toISOString().split("T")[0];
-          break;
-        case "weekly":
-          currentDate.setDate(
-            currentDate.getDate() + 7 * task.repeatPattern.interval
-          );
-          newDueDate = currentDate.toISOString().split("T")[0];
-          break;
-        case "monthly":
-          currentDate.setMonth(
-            currentDate.getMonth() + task.repeatPattern.interval
-          );
-          newDueDate = currentDate.toISOString().split("T")[0];
-          break;
+      if (!task) {
+        console.error("Task not found after multiple attempts:", id);
+        toast({
+          title: "Error",
+          description: "Task not found",
+          variant: "destructive",
+        });
+        return;
       }
 
-      if (
-        !task.repeatPattern.endDate ||
-        (newDueDate && newDueDate <= task.repeatPattern.endDate)
-      ) {
-        // Create the next occurrence of this repeating task
-        const newTask: Task = {
+      const now = Date.now();
+      const isCompleted = !task.completed;
+      console.log(
+        `Toggling task completion: ${task.completed} -> ${isCompleted}`
+      );
+
+      // Toggle completion status
+      const updatedTask = {
+        ...task,
+        completed: isCompleted,
+        completionTimestamp: isCompleted ? now : null,
+      };
+
+      // Update local state immediately for better UX - do this before awaiting db operations
+      setTasks((currentTasks) =>
+        currentTasks.map((t) => (t.id === id ? updatedTask : t))
+      );
+
+      // Apply the current filter to update filtered tasks
+      setFilteredTasks((currentFilteredTasks) =>
+        currentFilteredTasks.map((t) => (t.id === id ? updatedTask : t))
+      );
+
+      // Perform database update with error handling
+      try {
+        await db.updateTask(updatedTask);
+        console.log("Task updated in database");
+
+        // Add to history
+        await db.addHistoryEntry({
           id: crypto.randomUUID(),
-          title: task.title,
-          dueDate: newDueDate,
-          suggestedDueDate: newDueDate,
-          createdAt: now,
-          goalId: task.goalId,
-          tags: task.tags,
-          completed: false,
-          priority: task.priority,
-          isArchived: false,
-          repeatPattern: task.repeatPattern,
-          completionTimestamp: null,
-          xp: task.xp,
-        };
+          type: "complete",
+          entityId: task.id,
+          entityType: "task",
+          timestamp: now,
+          details: { title: task.title, completed: isCompleted },
+        });
 
-        await db.addTask(newTask);
+        // Update the goal's lastActiveDate if it has one
+        if (task.goalId) {
+          const goal = await db.getGoal(task.goalId);
+          if (goal) {
+            await db.updateGoal({
+              ...goal,
+              lastActiveDate: now,
+            });
+
+            // If the task is completed, update the goal's streak counter
+            if (isCompleted) {
+              await db.updateGoalStreakOnTaskCompletion(task.goalId);
+            }
+          }
+        }
+
+        // If the task is completed, apply the gamification effects
+        if (isCompleted) {
+          const xpEarned = await applyTaskCompletionXP(updatedTask);
+
+          // Show a toast notification with XP earned
+          toast({
+            title: `Task ${isCompleted ? "completed" : "uncompleted"}!`,
+            description: isCompleted
+              ? `You earned ${xpEarned} XP for completing "${task.title}"`
+              : `"${task.title}" marked as not completed`,
+          });
+        } else {
+          toast({
+            title: "Task marked incomplete",
+            description: `"${task.title}" has been re-opened`,
+          });
+        }
+
+        // Handle task repetition
+        if (
+          isCompleted &&
+          task.repeatPattern &&
+          (task.repeatPattern.type === "daily" ||
+            task.repeatPattern.type === "weekly" ||
+            task.repeatPattern.type === "monthly")
+        ) {
+          // Create a new task based on the repeat pattern
+          let newDueDate: string | null = null;
+
+          const currentDate = task.dueDate
+            ? new Date(task.dueDate)
+            : new Date();
+
+          switch (task.repeatPattern.type) {
+            case "daily":
+              currentDate.setDate(
+                currentDate.getDate() + task.repeatPattern.interval
+              );
+              newDueDate = currentDate.toISOString().split("T")[0];
+              break;
+            case "weekly":
+              currentDate.setDate(
+                currentDate.getDate() + 7 * task.repeatPattern.interval
+              );
+              newDueDate = currentDate.toISOString().split("T")[0];
+              break;
+            case "monthly":
+              currentDate.setMonth(
+                currentDate.getMonth() + task.repeatPattern.interval
+              );
+              newDueDate = currentDate.toISOString().split("T")[0];
+              break;
+          }
+
+          if (
+            !task.repeatPattern.endDate ||
+            (newDueDate && newDueDate <= task.repeatPattern.endDate)
+          ) {
+            // Create the next occurrence of this repeating task
+            const newTask: Task = {
+              id: crypto.randomUUID(),
+              title: task.title,
+              dueDate: newDueDate,
+              suggestedDueDate: newDueDate,
+              createdAt: now,
+              goalId: task.goalId,
+              tags: task.tags,
+              completed: false,
+              priority: task.priority,
+              isArchived: false,
+              repeatPattern: task.repeatPattern,
+              completionTimestamp: null,
+              xp: task.xp,
+              dependencies: task.dependencies || [],
+            };
+
+            await db.addTask(newTask);
+          }
+        }
+      } catch (dbError) {
+        console.error("Database operation failed:", dbError);
+
+        // Revert the UI state since the database update failed
+        setTasks((currentTasks) =>
+          currentTasks.map((t) => (t.id === id ? task! : t))
+        );
+
+        setFilteredTasks((currentFilteredTasks) =>
+          currentFilteredTasks.map((t) => (t.id === id ? task! : t))
+        );
+
+        throw dbError; // Re-throw for the outer catch block
       }
-    }
 
-    await refreshData();
+      // Update data after all operations are complete
+      await refreshData();
+    } catch (error) {
+      console.error("Error in completeTask:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update task. Please try again later.",
+        variant: "destructive",
+      });
+    }
   };
 
   const deleteTask = async (id: string): Promise<void> => {
@@ -716,14 +918,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   // Toggle gamification view
   const toggleGamificationView = (show?: boolean) => {
-    if (typeof show === "boolean") {
-      setShowGamificationView(show);
-    } else {
-      setShowGamificationView((prev) => !prev);
-    }
+    const newState = typeof show === "boolean" ? show : !showGamificationView;
+    setShowGamificationView(newState);
+
+    // Persist to localStorage
+    localStorage.setItem("achievo-gamification-view", newState.toString());
 
     // Exit focus mode if entering gamification view
-    if (show === true && isFocusMode) {
+    if (newState === true && isFocusMode) {
       exitFocusMode();
     }
   };
@@ -831,6 +1033,51 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Force check for badges
+  const forceCheckBadges = async (): Promise<void> => {
+    try {
+      console.log("Force checking badges for all goals...");
+      const allGoals = await db.getGoals();
+      const allTasks = await db.getTasks();
+
+      for (const goal of allGoals) {
+        const goalTasks = allTasks.filter((task) => task.goalId === goal.id);
+        const earnedBadges = await checkEarnedBadges(goal.id, goalTasks);
+
+        // Update goal with badges if found
+        if (earnedBadges.length > 0) {
+          const goalBadges = goal.badges || [];
+          let badgesUpdated = false;
+
+          for (const badge of earnedBadges) {
+            if (!goalBadges.includes(badge.id)) {
+              goalBadges.push(badge.id);
+              badgesUpdated = true;
+
+              // Notify user of earned badge
+              toast({
+                title: "Badge Earned!",
+                description: `You earned the "${badge.name}" badge for ${goal.title}!`,
+              });
+            }
+          }
+
+          if (badgesUpdated) {
+            await db.updateGoal({
+              ...goal,
+              badges: goalBadges,
+            });
+          }
+        }
+      }
+
+      // Refresh data to reflect changes
+      await refreshData();
+    } catch (error) {
+      console.error("Failed to check badges:", error);
+    }
+  };
+
   // Wrap provider value in try-catch to prevent unhandled errors
   let providerValue: AppContextType;
   try {
@@ -850,6 +1097,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       dismissedInactiveGoals,
       goalDismissStatus,
       setCurrentGoalId,
+      setGoalWithLoading,
       createGoal,
       updateGoal,
       deleteGoal,
@@ -873,6 +1121,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       undoDismissInactiveGoal,
       updateInactivityThreshold,
       addTask: createTask,
+      forceCheckBadges,
     };
   } catch (error) {
     console.error("Error in AppContext:", error);
@@ -892,6 +1141,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       dismissedInactiveGoals: [],
       goalDismissStatus: false,
       setCurrentGoalId: () => {},
+      setGoalWithLoading: () => {},
       createGoal: async () => "",
       updateGoal: async () => "",
       deleteGoal: async () => {},
@@ -918,6 +1168,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       undoDismissInactiveGoal: () => {},
       updateInactivityThreshold: () => {},
       addTask: async () => "",
+      forceCheckBadges: async () => {},
     };
   }
 

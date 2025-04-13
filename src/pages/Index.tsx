@@ -13,6 +13,7 @@ import {
   CheckSquare,
   RefreshCw,
   AlertTriangle,
+  Trophy,
 } from "lucide-react";
 import { FocusMode } from "@/components/FocusMode";
 import { cn } from "@/lib/utils";
@@ -75,77 +76,34 @@ const Index = () => {
   const createTask = appContext?.createTask;
 
   // Handle adding demo data
-  const handleAddDemoData = async () => {
-    try {
-      await addPrebuiltData();
-      await addInactivityDemoData();
-      if (refreshData) await refreshData();
+  const handleAddDemoData = () => addInactivityDemoData();
+
+  const handleCreateTestGoal = () => {
+    if (createGoal) {
+      const goalId = createGoal("Test Goal");
+      if (refreshData) refreshData();
       toast({
-        title: "Success",
-        description: "Demo data has been added!",
+        title: "Test Goal Created",
+        description: "A new test goal has been added",
       });
-    } catch (error) {
-      console.error("Failed to add demo data:", error);
-      toast({
-        title: "Error",
-        description: "Failed to add demo data.",
-        variant: "destructive",
-      });
-      // Show emergency reset if there was an error
-      setShowEmergencyReset(true);
     }
   };
 
-  // Handle creating a test goal
-  const handleCreateTestGoal = async () => {
-    try {
-      if (createGoal) {
-        const goalId = await createGoal("Test Goal");
-        if (refreshData) await refreshData();
-        toast({
-          title: "Success",
-          description: "Test goal has been created!",
-        });
-      }
-    } catch (error) {
-      console.error("Failed to create test goal:", error);
-      toast({
-        title: "Error",
-        description: "Failed to create test goal.",
-        variant: "destructive",
+  const handleCreateTestTask = () => {
+    if (createTask) {
+      const today = new Date().toISOString().split("T")[0];
+      const taskId = createTask({
+        title: "Test Task",
+        dueDate: today,
+        suggestedDueDate: today,
+        priority: "medium",
+        tags: ["test"],
       });
-      // Show emergency reset if there was an error
-      setShowEmergencyReset(true);
-    }
-  };
-
-  // Handle creating a test task
-  const handleCreateTestTask = async () => {
-    try {
-      if (createTask) {
-        const today = new Date().toISOString().split("T")[0];
-        const taskId = await createTask({
-          title: "Test Task",
-          dueDate: today,
-          suggestedDueDate: today,
-          priority: "medium",
-          tags: ["test"],
-        });
-        if (refreshData) await refreshData();
-        toast({
-          title: "Success",
-          description: "Test task has been created!",
-        });
-      }
-    } catch (error) {
-      console.error("Failed to create test task:", error);
+      if (refreshData) refreshData();
       toast({
-        title: "Error",
-        description: "Failed to create test task.",
-        variant: "destructive",
+        title: "Test Task Created",
+        description: "A new test task has been added",
       });
-      // Show emergency reset if there was an error
-      setShowEmergencyReset(true);
     }
   };
 
@@ -239,53 +197,55 @@ const Index = () => {
       <div className="flex-1 flex flex-col overflow-hidden">
         {!isFocusMode && (
           <div className="p-2 flex flex-wrap gap-2 justify-end">
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1"
-              onClick={handleAddDemoData}
-            >
-              <Database size={16} />
-              <span>Add Demo Data</span>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1"
-              onClick={handleCreateTestGoal}
-            >
-              <Target size={16} />
-              <span>Create Goal</span>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-1"
-              onClick={handleCreateTestTask}
-            >
-              <CheckSquare size={16} />
-              <span>Create Task</span>
-            </Button>
-            {showEmergencyReset && (
+            <div className="flex flex-wrap gap-2">
               <Button
-                variant="destructive"
+                variant="outline"
                 size="sm"
                 className="flex items-center gap-1"
-                onClick={resetDatabase}
+                onClick={handleAddDemoData}
               >
-                <AlertTriangle size={16} />
-                <span>Reset Database</span>
+                <Database size={16} />
+                <span>Add Demo Data</span>
               </Button>
-            )}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="flex items-center gap-1"
-              onClick={() => setShowEmergencyReset((prev) => !prev)}
-            >
-              <RefreshCw size={16} />
-              <span>Show Reset Option</span>
-            </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={handleCreateTestGoal}
+              >
+                <Target size={16} />
+                <span>Create Goal</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={handleCreateTestTask}
+              >
+                <CheckSquare size={16} />
+                <span>Create Task</span>
+              </Button>
+              {showEmergencyReset && (
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="flex items-center gap-1"
+                  onClick={resetDatabase}
+                >
+                  <AlertTriangle size={16} />
+                  <span>Reset Database</span>
+                </Button>
+              )}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={() => setShowEmergencyReset((prev) => !prev)}
+              >
+                <RefreshCw size={16} />
+                <span>Show Reset Option</span>
+              </Button>
+            </div>
           </div>
         )}
 

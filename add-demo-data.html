@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Add Demo Data to Achievo</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        line-height: 1.6;
+      }
+      button {
+        background-color: #9b87f5;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        font-size: 16px;
+        cursor: pointer;
+        border-radius: 4px;
+        margin: 10px 0;
+      }
+      button:hover {
+        background-color: #8a73e8;
+      }
+      .status {
+        margin-top: 20px;
+        padding: 10px;
+        border-radius: 4px;
+      }
+      .success {
+        background-color: #d4edda;
+        color: #155724;
+      }
+      .error {
+        background-color: #f8d7da;
+        color: #721c24;
+      }
+      pre {
+        background-color: #f8f9fa;
+        padding: 10px;
+        border-radius: 4px;
+        overflow: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Add Demo Data to Achievo</h1>
+    <p>
+      This tool will add demo goals and tasks to your Achievo application's
+      database.
+    </p>
+
+    <button id="addDemoDataBtn">Add Demo Data</button>
+    <button id="resetDatabaseBtn">Reset Database</button>
+
+    <div id="status" class="status" style="display: none"></div>
+
+    <h2>Instructions:</h2>
+    <ol>
+      <li>Make sure your Achievo application is closed (no open tabs)</li>
+      <li>Click the "Add Demo Data" button above</li>
+      <li>If successful, open your Achievo app to see the demo data</li>
+      <li>If something goes wrong, you can try the "Reset Database" button</li>
+    </ol>
+
+    <script>
+      document
+        .getElementById("addDemoDataBtn")
+        .addEventListener("click", addDemoData);
+      document
+        .getElementById("resetDatabaseBtn")
+        .addEventListener("click", resetDatabase);
+
+      function showStatus(message, isSuccess) {
+        const statusEl = document.getElementById("status");
+        statusEl.textContent = message;
+        statusEl.style.display = "block";
+        statusEl.className = "status " + (isSuccess ? "success" : "error");
+      }
+
+      function resetDatabase() {
+        if (
+          !confirm(
+            "Are you sure you want to reset the database? This will delete ALL your data!"
+          )
+        ) {
+          return;
+        }
+
+        try {
+          const deleteRequest = window.indexedDB.deleteDatabase("achievo-db");
+
+          deleteRequest.onerror = function (event) {
+            showStatus(
+              "Error resetting database: " + event.target.error,
+              false
+            );
+          };
+
+          deleteRequest.onsuccess = function () {
+            showStatus(
+              "Database has been reset successfully! You can now open the Achievo app.",
+              true
+            );
+          };
+        } catch (error) {
+          showStatus("Error resetting database: " + error.message, false);
+        }
+      }
+
+      function addDemoData() {
+        const timestamp = Date.now();
+        const dayInMs = 24 * 60 * 60 * 1000;
+
+        try {
+          // Open the database
+          const request = window.indexedDB.open("achievo-db", 1);
+
+          request.onerror = function (event) {
+            showStatus("Database error: " + event.target.error, false);
+          };
+
+          request.onupgradeneeded = function (event) {
+            const db = event.target.result;
+
+            // Create object stores if they don't exist
+            if (!db.objectStoreNames.contains("goals")) {
+              const goalStore = db.createObjectStore("goals", {
+                keyPath: "id",
+              });
+              goalStore.createIndex("by-order", "order");
+            }
+
+            if (!db.objectStoreNames.contains("tasks")) {
+              const taskStore = db.createObjectStore("tasks", {
+                keyPath: "id",
+              });
+              taskStore.createIndex("by-goalId", "goalId");
+              taskStore.createIndex("by-dueDate", "dueDate");
+              taskStore.createIndex("by-completed", "completed");
+            }
+
+            if (!db.objectStoreNames.contains("history")) {
+              const historyStore = db.createObjectStore("history", {
+                keyPath: "id",
+              });
+              historyStore.createIndex("by-timestamp", "timestamp");
+            }
+          };
+
+          request.onsuccess = function (event) {
+            const db = event.target.result;
+
+            // Create demo goals
+            const goals = [
+              {
+                id: `active-goal-${timestamp}`,
+                title: "Active Goal (Recent activity)",
+                createdAt: timestamp - 30 * dayInMs,
+                taskIds: [],
+                order: 100,
+                streakCounter: 3,
+                lastCompletedDate: new Date().toISOString().split("T")[0],
+                color: "#2dd4bf",
+                level: 2,
+                xp: 150,
+                lastActiveDate: timestamp - 1 * dayInMs,
+              },
+              {
+                id: `inactive-5-day-${timestamp}`,
+                title: "5-Day Inactive Goal",
+                createdAt: timestamp - 15 * dayInMs,
+                taskIds: [],
+                order: 101,
+                streakCounter: 0,
+                lastCompletedDate: new Date(timestamp - 7 * dayInMs)
+                  .toISOString()
+                  .split("T")[0],
+                color: "#fdba74",
+                level: 1,
+                xp: 70,
+                lastActiveDate: timestamp - 6 * dayInMs,
+              },
+              {
+                id: `inactive-30-day-${timestamp}`,
+                title: "30-Day Abandoned Goal",
+                createdAt: timestamp - 45 * dayInMs,
+                taskIds: [],
+                order: 103,
+                streakCounter: 0,
+                lastCompletedDate: new Date(timestamp - 32 * dayInMs)
+                  .toISOString()
+                  .split("T")[0],
+                color: "#f87171",
+                level: 1,
+                xp: 30,
+                lastActiveDate: timestamp - 30 * dayInMs,
+              },
+            ];
+
+            // Create demo tasks
+            const today = new Date().toISOString().split("T")[0];
+            const tomorrow = new Date(timestamp + 1 * dayInMs)
+              .toISOString()
+              .split("T")[0];
+
+            const tasks = [
+              {
+                id: `active-task-1-${timestamp}`,
+                title: "Recently completed task",
+                dueDate: today,
+                suggestedDueDate: today,
+                createdAt: timestamp - 2 * dayInMs,
+                goalId: `active-goal-${timestamp}`,
+                tags: ["demo", "active"],
+                completed: true,
+                priority: "medium",
+                isArchived: false,
+                repeatPattern: null,
+                completionTimestamp: timestamp - 1 * dayInMs,
+                xp: 30,
+              },
+              {
+                id: `active-task-2-${timestamp}`,
+                title: "Upcoming task",
+                dueDate: tomorrow,
+                suggestedDueDate: tomorrow,
+                createdAt: timestamp - 1 * dayInMs,
+                goalId: `active-goal-${timestamp}`,
+                tags: ["demo", "upcoming"],
+                completed: false,
+                priority: "high",
+                isArchived: false,
+                repeatPattern: null,
+                completionTimestamp: null,
+                xp: 45,
+              },
+              {
+                id: `inactive-5-task-${timestamp}`,
+                title: "Stale task (5 days)",
+                dueDate: new Date(timestamp - 3 * dayInMs)
+                  .toISOString()
+                  .split("T")[0],
+                suggestedDueDate: new Date(timestamp - 3 * dayInMs)
+                  .toISOString()
+                  .split("T")[0],
+                createdAt: timestamp - 10 * dayInMs,
+                goalId: `inactive-5-day-${timestamp}`,
+                tags: ["demo", "inactive"],
+                completed: false,
+                priority: "low",
+                isArchived: false,
+                repeatPattern: null,
+                completionTimestamp: null,
+                xp: 20,
+              },
+              {
+                id: `inactive-30-task-${timestamp}`,
+                title: "Abandoned task (30 days)",
+                dueDate: new Date(timestamp - 25 * dayInMs)
+                  .toISOString()
+                  .split("T")[0],
+                suggestedDueDate: new Date(timestamp - 25 * dayInMs)
+                  .toISOString()
+                  .split("T")[0],
+                createdAt: timestamp - 35 * dayInMs,
+                goalId: `inactive-30-day-${timestamp}`,
+                tags: ["demo", "abandoned"],
+                completed: false,
+                priority: "medium",
+                isArchived: false,
+                repeatPattern: null,
+                completionTimestamp: null,
+                xp: 25,
+              },
+            ];
+
+            // Add goals
+            const goalTransaction = db.transaction(["goals"], "readwrite");
+            const goalStore = goalTransaction.objectStore("goals");
+
+            let goalsAdded = 0;
+
+            goals.forEach((goal) => {
+              const request = goalStore.add(goal);
+
+              request.onsuccess = function () {
+                goalsAdded++;
+                console.log(`Added goal: ${goal.title}`);
+
+                if (goalsAdded === goals.length) {
+                  // All goals added, now add tasks
+                  addTasks();
+                }
+              };
+
+              request.onerror = function (event) {
+                console.error(
+                  `Error adding goal ${goal.title}:`,
+                  event.target.error
+                );
+                showStatus(
+                  `Error adding goal ${goal.title}: ${event.target.error}`,
+                  false
+                );
+              };
+            });
+
+            function addTasks() {
+              const taskTransaction = db.transaction(["tasks"], "readwrite");
+              const taskStore = taskTransaction.objectStore("tasks");
+
+              let tasksAdded = 0;
+
+              tasks.forEach((task) => {
+                const request = taskStore.add(task);
+
+                request.onsuccess = function () {
+                  tasksAdded++;
+                  console.log(`Added task: ${task.title}`);
+
+                  // Update goal's taskIds
+                  updateGoalTaskIds(task.goalId, task.id);
+
+                  if (tasksAdded === tasks.length) {
+                    // All tasks added
+                    showStatus(
+                      `Successfully added ${goals.length} goals and ${tasks.length} tasks. You can now open the Achievo app.`,
+                      true
+                    );
+                  }
+                };
+
+                request.onerror = function (event) {
+                  console.error(
+                    `Error adding task ${task.title}:`,
+                    event.target.error
+                  );
+                  showStatus(
+                    `Error adding task ${task.title}: ${event.target.error}`,
+                    false
+                  );
+                };
+              });
+            }
+
+            function updateGoalTaskIds(goalId, taskId) {
+              const transaction = db.transaction(["goals"], "readwrite");
+              const store = transaction.objectStore("goals");
+              const request = store.get(goalId);
+
+              request.onsuccess = function (event) {
+                const goal = event.target.result;
+                if (goal) {
+                  if (!goal.taskIds) {
+                    goal.taskIds = [];
+                  }
+                  goal.taskIds.push(taskId);
+                  store.put(goal);
+                }
+              };
+            }
+          };
+        } catch (error) {
+          showStatus("Error: " + error.message, false);
+        }
+      }
+    </script>
+  </body>
+</html>

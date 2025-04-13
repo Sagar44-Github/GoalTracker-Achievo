@@ -55,6 +55,7 @@ export function GoalTab({
 }: GoalTabProps) {
   const {
     setCurrentGoalId,
+    setGoalWithLoading,
     currentGoalId,
     filteredTasks,
     tasks,
@@ -94,11 +95,24 @@ export function GoalTab({
 
   const handleSaveEdit = async () => {
     if (editedTitle.trim()) {
-      await updateGoal({
-        ...goal,
-        title: editedTitle.trim(),
-      });
-      setIsEditDialogOpen(false);
+      try {
+        await updateGoal({
+          ...goal,
+          title: editedTitle.trim(),
+        });
+        setIsEditDialogOpen(false);
+        toast({
+          title: "Goal updated",
+          description: "Goal title has been updated successfully.",
+        });
+      } catch (error) {
+        console.error("Failed to update goal:", error);
+        toast({
+          title: "Error",
+          description: "Failed to update goal. Please try again.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
@@ -108,20 +122,37 @@ export function GoalTab({
   };
 
   const confirmDelete = async () => {
-    await deleteGoal(goal.id);
-    setIsDeleteDialogOpen(false);
+    try {
+      await deleteGoal(goal.id);
+      setIsDeleteDialogOpen(false);
+      toast({
+        title: "Goal deleted",
+        description: "The goal has been deleted successfully.",
+      });
+    } catch (error) {
+      console.error("Failed to delete goal:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete goal. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleGoalSelect = async () => {
-    // Set the current goal ID to toggle between goals
-    setCurrentGoalId(goal.id);
+    try {
+      // Use the optimized setGoalWithLoading function instead
+      setGoalWithLoading(goal.id);
 
-    // Update the lastActiveDate timestamp for this goal
-    if (goal.id) {
-      await updateGoal({
-        ...goal,
-        lastActiveDate: Date.now(),
-      });
+      // Update the lastActiveDate timestamp for this goal
+      if (goal.id) {
+        await updateGoal({
+          ...goal,
+          lastActiveDate: Date.now(),
+        });
+      }
+    } catch (error) {
+      console.error("Failed to select goal:", error);
     }
   };
 

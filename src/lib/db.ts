@@ -85,6 +85,34 @@ const initDB = async () => {
   if (!dbPromise) {
     try {
       console.log("Initializing database...");
+
+      // Close any existing connections first to avoid blocking
+      const closeExisting = () => {
+        try {
+          const existingDBs = window.indexedDB.databases?.();
+          if (existingDBs && typeof existingDBs.then === "function") {
+            return existingDBs
+              .then((dbs) => {
+                dbs.forEach((db) => {
+                  if (db.name === "achievo-db") {
+                    console.log("Closing existing database connection");
+                    window.indexedDB.deleteDatabase(db.name);
+                  }
+                });
+              })
+              .catch((err) => {
+                console.warn("Could not close existing connections:", err);
+              });
+          }
+        } catch (e) {
+          console.warn("Database closing not supported:", e);
+        }
+        return Promise.resolve();
+      };
+
+      // Wait for any potentially blocking connections to be closed
+      await closeExisting().catch(() => {}); // Ignore errors here
+
       dbPromise = openDB<AchievoDB>("achievo-db", 1, {
         upgrade(db) {
           console.log("Upgrading database schema...");
@@ -112,16 +140,32 @@ const initDB = async () => {
           }
           console.log("Database schema upgrade complete");
         },
-        blocked() {
+        blocked(e) {
           console.warn(
-            "Database opening blocked - another tab has the database open"
+            "Database opening blocked - another tab has the database open",
+            e
           );
+          // Try to close the blocking connection
+          window.setTimeout(() => {
+            alert(
+              "Database is blocked. Please close other tabs with this app open."
+            );
+          }, 1000);
         },
-        blocking() {
-          console.warn("This tab is blocking a database upgrade");
+        blocking(e) {
+          console.warn("This tab is blocking a database upgrade", e);
+          // Close gracefully if possible
+          if (dbPromise) {
+            dbPromise
+              .then((db) => {
+                db.close();
+                dbPromise = null;
+              })
+              .catch(() => {});
+          }
         },
-        terminated() {
-          console.error("Database connection was terminated unexpectedly");
+        terminated(e) {
+          console.error("Database connection was terminated unexpectedly", e);
           dbPromise = null; // Reset so we can try again
         },
       });
@@ -129,10 +173,25 @@ const initDB = async () => {
     } catch (error) {
       console.error("Failed to initialize database:", error);
       dbPromise = null;
-      throw new Error(
-        "Database initialization failed: " +
-          (error instanceof Error ? error.message : String(error))
-      );
+
+      // Attempt recovery by deleting and recreating the database
+      try {
+        await new Promise((resolve, reject) => {
+          const deleteRequest = window.indexedDB.deleteDatabase("achievo-db");
+          deleteRequest.onsuccess = resolve;
+          deleteRequest.onerror = reject;
+        });
+        console.log("Database deleted for recovery");
+
+        // Try to initialize again after a short delay
+        await new Promise((resolve) => setTimeout(resolve, 500));
+        return initDB(); // Recursively try again
+      } catch (recoveryError) {
+        console.error("Recovery failed:", recoveryError);
+        throw new Error(
+          "Database initialization failed and recovery was unsuccessful. Please refresh the page."
+        );
+      }
     }
   }
   return dbPromise;
@@ -273,53 +332,82 @@ export const db = {
   },
 
   async updateTask(task: Task): Promise<string> {
-    const db = await initDB();
+    try {
+      const db = await initDB();
 
-    // Get the old task to compare changes
-    const oldTask = await this.getTask(task.id);
+      // Get the old task to compare changes
+      const oldTask = await this.getTask(task.id);
+      if (!oldTask) {
+        console.warn("Task not found when updating:", task.id);
+      }
 
-    // Update the task
-    await db.put("tasks", task);
+      // Update the task with retry mechanism
+      let attempts = 0;
+      const maxAttempts = 3;
 
-    // If goal assignment changed, update both goals
-    if (oldTask && oldTask.goalId !== task.goalId) {
-      // Remove from old goal
-      if (oldTask.goalId) {
-        const oldGoal = await this.getGoal(oldTask.goalId);
-        if (oldGoal) {
-          oldGoal.taskIds = oldGoal.taskIds.filter((id) => id !== task.id);
-          await this.updateGoal(oldGoal);
+      while (attempts < maxAttempts) {
+        try {
+          await db.put("tasks", task);
+          break; // Break out of loop if successful
+        } catch (error) {
+          attempts++;
+          console.warn(`Task update attempt ${attempts} failed:`, error);
+
+          if (attempts >= maxAttempts) {
+            throw error; // Rethrow if all attempts failed
+          }
+
+          // Wait before retrying
+          await new Promise((resolve) => setTimeout(resolve, 300 * attempts));
         }
       }
 
-      // Add to new goal
-      if (task.goalId) {
-        const newGoal = await this.getGoal(task.goalId);
-        if (newGoal && !newGoal.taskIds.includes(task.id)) {
-          newGoal.taskIds.push(task.id);
-          await this.updateGoal(newGoal);
+      // If goal assignment changed, update both goals
+      if (oldTask && oldTask.goalId !== task.goalId) {
+        // Remove from old goal
+        if (oldTask.goalId) {
+          const oldGoal = await this.getGoal(oldTask.goalId);
+          if (oldGoal) {
+            oldGoal.taskIds = oldGoal.taskIds.filter((id) => id !== task.id);
+            await this.updateGoal(oldGoal);
+          }
+        }
+
+        // Add to new goal
+        if (task.goalId) {
+          const newGoal = await this.getGoal(task.goalId);
+          if (newGoal && !newGoal.taskIds.includes(task.id)) {
+            newGoal.taskIds.push(task.id);
+            await this.updateGoal(newGoal);
+          }
         }
       }
-    }
 
-    // Add to history if task was completed
-    if (oldTask && !oldTask.completed && task.completed) {
-      await this.addHistoryEntry({
-        id: crypto.randomUUID(),
-        type: "complete",
-        entityId: task.id,
-        entityType: "task",
-        timestamp: Date.now(),
-        details: { title: task.title },
-      });
+      // Add to history if task was completed
+      if (oldTask && !oldTask.completed && task.completed) {
+        await this.addHistoryEntry({
+          id: crypto.randomUUID(),
+          type: "complete",
+          entityId: task.id,
+          entityType: "task",
+          timestamp: Date.now(),
+          details: { title: task.title },
+        });
 
-      // Update goal streak if task was completed
-      if (task.goalId) {
-        await this.updateGoalStreakOnTaskCompletion(task.goalId);
+        // Update goal streak if task was completed
+        if (task.goalId) {
+          await this.updateGoalStreakOnTaskCompletion(task.goalId);
+        }
       }
-    }
 
-    return task.id;
+      return task.id;
+    } catch (error) {
+      console.error("Failed to update task:", error);
+      throw new Error(
+        "Failed to update task: " +
+          (error instanceof Error ? error.message : String(error))
+      );
+    }
   },
 
   async deleteTask(id: string): Promise<void> {
