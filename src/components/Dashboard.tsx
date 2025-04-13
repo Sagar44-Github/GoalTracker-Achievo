@@ -34,6 +34,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { addPrebuiltData } from "@/lib/prebuiltData";
+import { toast } from "@/hooks/use-toast";
 
 interface AnalyticsData {
   tasksCompletedToday: number;
@@ -127,16 +129,43 @@ export function Dashboard() {
         <div className="flex justify-between items-center mb-4 sm:mb-6">
           <h1 className="text-xl sm:text-2xl font-bold">Dashboard</h1>
 
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-1"
-            onClick={() => toggleGamificationView(true)}
-          >
-            <Trophy size={16} className="text-yellow-500" />
-            <span className="hidden sm:inline">View Achievements</span>
-            <span className="sm:hidden">Achievements</span>
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={async () => {
+                try {
+                  await addPrebuiltData();
+                  await refreshData();
+                  toast({
+                    title: "Success",
+                    description: "Additional demo data has been added!",
+                  });
+                } catch (error) {
+                  console.error("Failed to add demo data:", error);
+                  toast({
+                    title: "Error",
+                    description: "Failed to add demo data.",
+                    variant: "destructive",
+                  });
+                }
+              }}
+            >
+              <span>Add Demo Data</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => toggleGamificationView(true)}
+            >
+              <Trophy size={16} className="text-yellow-500" />
+              <span className="hidden sm:inline">View Achievements</span>
+              <span className="sm:hidden">Achievements</span>
+            </Button>
+          </div>
         </div>
 
         {/* Stats Cards */}

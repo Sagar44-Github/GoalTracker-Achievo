@@ -82,6 +82,8 @@ export function TaskList() {
     goalId: currentGoalId,
     tags: [],
     priority: "medium",
+    repeatPattern: null,
+    dependencies: [],
   });
   const [suggestedTags, setSuggestedTags] = useState<string[]>([]);
   const [isListening, setIsListening] = useState(false);
@@ -191,6 +193,7 @@ export function TaskList() {
         goalId: currentGoalId,
         tags: [],
         priority: "medium",
+        repeatPattern: null,
         dependencies: [], // Reset dependencies
       });
 
@@ -439,6 +442,46 @@ export function TaskList() {
                       {goal.title}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Add Repeat Pattern option */}
+            <div className="space-y-2">
+              <Label htmlFor="repeatPattern">Repeat</Label>
+              <Select
+                value={
+                  newTask.repeatPattern ? newTask.repeatPattern.type : "none"
+                }
+                onValueChange={(value) => {
+                  if (value === "none") {
+                    setNewTask({
+                      ...newTask,
+                      repeatPattern: null,
+                    });
+                  } else {
+                    setNewTask({
+                      ...newTask,
+                      repeatPattern: {
+                        type: value as
+                          | "daily"
+                          | "weekly"
+                          | "monthly"
+                          | "custom",
+                        interval: 1,
+                      },
+                    });
+                  }
+                }}
+              >
+                <SelectTrigger id="repeatPattern">
+                  <SelectValue placeholder="No repeat" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No repeat</SelectItem>
+                  <SelectItem value="daily">Daily</SelectItem>
+                  <SelectItem value="weekly">Weekly</SelectItem>
+                  <SelectItem value="monthly">Monthly</SelectItem>
                 </SelectContent>
               </Select>
             </div>

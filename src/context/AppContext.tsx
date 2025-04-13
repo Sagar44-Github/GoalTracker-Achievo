@@ -8,6 +8,7 @@ import React, {
 import { Goal, Task, HistoryEntry, db } from "@/lib/db";
 import { toast } from "@/hooks/use-toast";
 import { applyTaskCompletionXP } from "@/lib/gamificationUtils";
+import { addPrebuiltData } from "@/lib/prebuiltData";
 
 // Define the type for our context
 interface AppContextType {
@@ -85,6 +86,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
         // Add initial data
         await db.createDefaultData();
+
+        // Add additional pre-built data
+        await addPrebuiltData();
 
         // Load goals and tasks
         await refreshData();

@@ -362,6 +362,40 @@ export function TaskItem({ task }: TaskItemProps) {
               />
             </div>
 
+            {/* Add Repeat Pattern option */}
+            <div className="space-y-2">
+              <Label htmlFor="repeatPattern">Repeat</Label>
+              <Select
+                value={editedTask.repeatPattern ? editedTask.repeatPattern.type : "none"}
+                onValueChange={(value) => {
+                  if (value === "none") {
+                    setEditedTask({
+                      ...editedTask,
+                      repeatPattern: null,
+                    });
+                  } else {
+                    setEditedTask({
+                      ...editedTask,
+                      repeatPattern: {
+                        type: value as "daily" | "weekly" | "monthly" | "custom",
+                        interval: 1,
+                      },
+                    });
+                  }
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="No repeat" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No repeat</SelectItem>
+                  <SelectItem value="daily">Daily</SelectItem>
+                  <SelectItem value="weekly">Weekly</SelectItem>
+                  <SelectItem value="monthly">Monthly</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
             {/* Display Dependencies */}
             {editedTask.dependencies && editedTask.dependencies.length > 0 && (
               <div className="space-y-2">
