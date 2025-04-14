@@ -3,6 +3,7 @@ import { useApp } from "@/context/AppContext";
 import { Sidebar } from "@/components/Sidebar";
 import { TaskList } from "@/components/TaskList";
 import { Dashboard } from "@/components/Dashboard";
+import { TimelineJournalView } from "@/components/TimelineJournalView";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   BarChart3,
@@ -15,6 +16,7 @@ import {
   AlertTriangle,
   Trophy,
   HardDrive,
+  Clock,
 } from "lucide-react";
 import { FocusMode } from "@/components/FocusMode";
 import { cn } from "@/lib/utils";
@@ -292,7 +294,34 @@ const Index = () => {
             value="dashboard"
             className="flex-1 overflow-auto m-0 data-[state=active]:flex-1"
           >
-            <Dashboard />
+            <div className="flex-1 overflow-auto relative">
+              <div className="p-2 border-b flex justify-end">
+                <Tabs defaultValue="dashboard" className="w-auto">
+                  <TabsList>
+                    <TabsTrigger
+                      value="dashboard"
+                      className="flex items-center gap-1"
+                    >
+                      <BarChart3 className="h-4 w-4" />
+                      <span>Dashboard</span>
+                    </TabsTrigger>
+                    <TabsTrigger
+                      value="timeline"
+                      className="flex items-center gap-1"
+                    >
+                      <Clock className="h-4 w-4" />
+                      <span>Timeline</span>
+                    </TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="dashboard">
+                    <Dashboard />
+                  </TabsContent>
+                  <TabsContent value="timeline">
+                    <TimelineJournalView />
+                  </TabsContent>
+                </Tabs>
+              </div>
+            </div>
           </TabsContent>
         </Tabs>
       </div>

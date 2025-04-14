@@ -1,15 +1,25 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useApp } from "@/context/AppContext";
 import { Button } from "@/components/ui/button";
 import { TaskItem } from "./TaskItem";
 import { CommandInput } from "./CommandInput";
-import { Plus, Mic, Network, Feather } from "lucide-react";
+import {
+  Plus,
+  Mic,
+  Network,
+  Feather,
+  Calendar,
+  List,
+  Clock,
+  X,
+} from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -32,6 +42,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GraphView } from "./GraphView";
 import { QuietTasksPanel } from "./QuietTasksPanel";
 import { Switch } from "@/components/ui/switch";
+import { TimelineJournalView } from "./TimelineJournalView";
+import { cn } from "@/lib/utils";
 
 // Before declaring it in global scope, check if it's already declared
 // Use a different name for the local interface
@@ -98,7 +110,9 @@ export function TaskList() {
   const [suggestedTags, setSuggestedTags] = useState<string[]>([]);
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState("");
-  const [activeView, setActiveView] = useState<"list" | "graph">("list");
+  const [activeView, setActiveView] = useState<"list" | "graph" | "timeline">(
+    "list"
+  );
   const [showThemeFilteredTasks, setShowThemeFilteredTasks] = useState(false);
 
   // Speech recognition setup
@@ -289,7 +303,7 @@ export function TaskList() {
   }, [activeView, currentGoalId]);
 
   // Handle view toggle
-  const toggleView = (view: "list" | "graph") => {
+  const toggleView = (view: "list" | "graph" | "timeline") => {
     console.log(`Switching to ${view} view`);
     setActiveView(view);
   };
@@ -306,113 +320,95 @@ export function TaskList() {
       : sortedTasks;
 
   return (
-    <div className="h-full flex flex-col overflow-hidden">
-      <div className="p-4 flex flex-col gap-2">
-        <div className="flex justify-between items-center">
-          <h2 className="text-xl font-semibold">
-            {isFocusMode
-              ? "Focus Mode"
-              : currentGoalId
-              ? `Tasks for ${
-                  goals.find((g) => g.id === currentGoalId)?.title || ""
-                }`
-              : "All Tasks"}
-          </h2>
-
-          <div className="flex gap-2">
-            {isDailyThemeModeEnabled && currentDayTheme && (
-              <Button
-                variant={showThemeFilteredTasks ? "default" : "outline"}
-                size="sm"
-                onClick={() =>
-                  setShowThemeFilteredTasks(!showThemeFilteredTasks)
-                }
-                className="flex items-center gap-1"
-                style={
-                  showThemeFilteredTasks
-                    ? { backgroundColor: currentDayTheme.color }
-                    : {}
-                }
-              >
-                <div
-                  className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: currentDayTheme.color }}
-                ></div>
-                {showThemeFilteredTasks
-                  ? currentDayTheme.name
-                  : `${currentDayTheme.name} Tasks`}
-                <Badge variant="outline" className="ml-1">
-                  {tasksMatchingTheme.length}
-                </Badge>
-              </Button>
-            )}
-
-            {!isFocusMode && (
-              <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex items-center gap-1"
-                  onClick={toggleQuietPanel}
-                >
-                  <Feather size={14} className="text-amber-500" />
-                  <span className="hidden md:inline">
-                    {showQuietPanel ? "Hide Quiet Tasks" : "Quiet Tasks"}
-                  </span>
-                  {!showQuietPanel && quietTasks.length > 0 && (
-                    <Badge variant="outline" className="ml-1">
-                      {quietTasks.length}
-                    </Badge>
-                  )}
-                </Button>
-
-                <Button
-                  size="sm"
-                  className="flex items-center gap-1"
-                  onClick={() => setIsAddTaskDialogOpen(true)}
-                >
-                  <Plus size={16} />
-                  <span className="hidden md:inline">Add Task</span>
-                </Button>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Theme Quote of the Day */}
-        {isDailyThemeModeEnabled &&
-          currentDayTheme &&
-          currentDayTheme.quote && (
-            <div
-              className="p-3 rounded-md border italic text-sm"
-              style={{
-                borderColor: currentDayTheme.color,
-                background: `${currentDayTheme.color}10`,
-              }}
-            >
-              "{currentDayTheme.quote}"
-            </div>
+    <div className="h-full flex flex-col overflow-hidden p-4">
+      <div className="flex justify-between items-center mb-4">
+        <h1
+          className={cn(
+            "text-xl font-semibold",
+            isFocusMode && "text-2xl text-center w-full"
           )}
+        >
+          {currentGoalId
+            ? goals.find((g) => g.id === currentGoalId)?.title || "Tasks"
+            : "All Tasks"}
+        </h1>
 
         {!isFocusMode && (
-          <div className="mt-2">
-            <CommandInput />
-          </div>
-        )}
+          <div className="flex items-center gap-2">
+            <div className="flex bg-muted/50 p-1 rounded-md">
+              <Button
+                variant={activeView === "list" ? "default" : "ghost"}
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={() => toggleView("list")}
+                title="List View"
+              >
+                <List className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={activeView === "graph" ? "default" : "ghost"}
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={() => toggleView("graph")}
+                title="Graph View"
+              >
+                <Network className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={activeView === "timeline" ? "default" : "ghost"}
+                size="sm"
+                className="h-8 w-8 p-0"
+                onClick={() => toggleView("timeline")}
+                title="Timeline Journal"
+              >
+                <Clock className="h-4 w-4" />
+              </Button>
+            </div>
 
-        {isFocusMode && focusTimer !== null && (
-          <div className="text-center py-2 bg-muted/50 rounded-md my-2">
-            <span className="font-mono text-2xl">
-              {Math.floor(focusTimer / 60)
-                .toString()
-                .padStart(2, "0")}
-              :{(focusTimer % 60).toString().padStart(2, "0")}
-            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsAddTaskDialogOpen(true)}
+              className="flex gap-1 items-center"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Add Task</span>
+            </Button>
           </div>
         )}
       </div>
 
-      <div className="flex-1 overflow-auto px-4 pb-4">
+      {/* Theme Quote of the Day */}
+      {isDailyThemeModeEnabled && currentDayTheme && currentDayTheme.quote && (
+        <div
+          className="p-3 rounded-md border italic text-sm"
+          style={{
+            borderColor: currentDayTheme.color,
+            background: `${currentDayTheme.color}10`,
+          }}
+        >
+          "{currentDayTheme.quote}"
+        </div>
+      )}
+
+      {!isFocusMode && (
+        <div className="mt-2">
+          <CommandInput />
+        </div>
+      )}
+
+      {isFocusMode && focusTimer !== null && (
+        <div className="text-center py-2 bg-muted/50 rounded-md my-2">
+          <span className="font-mono text-2xl">
+            {Math.floor(focusTimer / 60)
+              .toString()
+              .padStart(2, "0")}
+            :{(focusTimer % 60).toString().padStart(2, "0")}
+          </span>
+        </div>
+      )}
+
+      <div className="flex-1 overflow-auto pb-4 px-4">
         {activeView === "list" || !currentGoalId ? (
           <>
             <ul className="space-y-2">
@@ -431,8 +427,10 @@ export function TaskList() {
             {/* Quiet Tasks Panel */}
             <QuietTasksPanel />
           </>
-        ) : (
+        ) : activeView === "graph" ? (
           <GraphView goalId={currentGoalId || ""} />
+        ) : (
+          <TimelineJournalView />
         )}
       </div>
 
