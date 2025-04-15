@@ -1,6 +1,505 @@
 import { Goal, Task, DailyTheme, db } from "./db";
 
 /**
+ * Add realistic goals and tasks that represent common life goals
+ */
+export const addRealisticGoals = async (): Promise<void> => {
+  // Check if the realistic goals already exist to avoid duplicates
+  const existingGoals = await db.getGoals();
+  const realisticGoalIds = [
+    "fitness-health",
+    "career-development",
+    "personal-finance",
+    "reading-books",
+    "side-project",
+  ];
+
+  // If any of these goals already exist, we'll assume data was already added
+  if (existingGoals.some((goal) => realisticGoalIds.includes(goal.id))) {
+    console.log("Realistic goals already exist. Skipping.");
+    return;
+  }
+
+  console.log("Adding realistic goals and tasks...");
+
+  // Create realistic goals
+  const realisticGoals: Goal[] = [
+    {
+      id: "fitness-health",
+      title: "Fitness & Health",
+      createdAt: Date.now() - 45 * 24 * 60 * 60 * 1000,
+      taskIds: [],
+      order: 10,
+      streakCounter: 12,
+      lastCompletedDate: new Date().toISOString().split("T")[0],
+      color: "#4CAF50", // Green
+      level: 3,
+      xp: 350,
+      lastActiveDate: Date.now() - 1 * 24 * 60 * 60 * 1000,
+    },
+    {
+      id: "career-development",
+      title: "Career Growth",
+      createdAt: Date.now() - 60 * 24 * 60 * 60 * 1000,
+      taskIds: [],
+      order: 11,
+      streakCounter: 5,
+      lastCompletedDate: new Date().toISOString().split("T")[0],
+      color: "#2196F3", // Blue
+      level: 4,
+      xp: 520,
+      lastActiveDate: Date.now(),
+    },
+    {
+      id: "personal-finance",
+      title: "Financial Freedom",
+      createdAt: Date.now() - 90 * 24 * 60 * 60 * 1000,
+      taskIds: [],
+      order: 12,
+      streakCounter: 8,
+      lastCompletedDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .split("T")[0],
+      color: "#9C27B0", // Purple
+      level: 2,
+      xp: 290,
+      lastActiveDate: Date.now() - 2 * 24 * 60 * 60 * 1000,
+    },
+    {
+      id: "reading-books",
+      title: "Read 24 Books This Year",
+      createdAt: Date.now() - 120 * 24 * 60 * 60 * 1000,
+      taskIds: [],
+      order: 13,
+      streakCounter: 3,
+      lastCompletedDate: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .split("T")[0],
+      color: "#FF5722", // Deep Orange
+      level: 2,
+      xp: 270,
+      lastActiveDate: Date.now() - 4 * 24 * 60 * 60 * 1000,
+    },
+    {
+      id: "side-project",
+      title: "Launch My App",
+      createdAt: Date.now() - 30 * 24 * 60 * 60 * 1000,
+      taskIds: [],
+      order: 14,
+      streakCounter: 10,
+      lastCompletedDate: new Date().toISOString().split("T")[0],
+      color: "#607D8B", // Blue Grey
+      level: 2,
+      xp: 240,
+      lastActiveDate: Date.now(),
+      badges: ["consistent-effort", "innovator"],
+    },
+  ];
+
+  // Add goals
+  for (const goal of realisticGoals) {
+    await db.addGoal(goal);
+  }
+
+  // Create realistic tasks
+  const today = new Date().toISOString().split("T")[0];
+  const tomorrow = new Date(Date.now() + 1 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .split("T")[0];
+  const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .split("T")[0];
+  const twoWeeks = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .split("T")[0];
+  const nextMonth = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .split("T")[0];
+
+  const realisticTasks: Task[] = [
+    // Fitness & Health Tasks
+    {
+      id: "fitness-1",
+      title: "Morning run - 5K",
+      dueDate: today,
+      suggestedDueDate: today,
+      createdAt: Date.now() - 40 * 24 * 60 * 60 * 1000,
+      goalId: "fitness-health",
+      tags: ["exercise", "cardio", "morning-routine"],
+      completed: false,
+      priority: "high",
+      isArchived: false,
+      isQuiet: false,
+      repeatPattern: { type: "daily", interval: 1 },
+      completionTimestamp: null,
+      description:
+        "Complete a 5K run before breakfast to boost metabolism and energy for the day",
+    },
+    {
+      id: "fitness-2",
+      title: "Strength training session",
+      dueDate: tomorrow,
+      suggestedDueDate: tomorrow,
+      createdAt: Date.now() - 35 * 24 * 60 * 60 * 1000,
+      goalId: "fitness-health",
+      tags: ["exercise", "strength", "weights"],
+      completed: false,
+      priority: "medium",
+      isArchived: false,
+      isQuiet: false,
+      repeatPattern: { type: "weekly", interval: 2 },
+      completionTimestamp: null,
+      description: "Focus on upper body - chest, shoulders, arms, back",
+    },
+    {
+      id: "fitness-3",
+      title: "Prepare healthy meal plan for the week",
+      dueDate: nextWeek,
+      suggestedDueDate: nextWeek,
+      createdAt: Date.now() - 10 * 24 * 60 * 60 * 1000,
+      goalId: "fitness-health",
+      tags: ["nutrition", "planning", "meal-prep"],
+      completed: false,
+      priority: "medium",
+      isArchived: false,
+      isQuiet: false,
+      repeatPattern: { type: "weekly", interval: 1 },
+      completionTimestamp: null,
+      description:
+        "Plan balanced meals with proper protein, carbs, and vegetables. Include shopping list.",
+    },
+    {
+      id: "fitness-4",
+      title: "Annual physical checkup",
+      dueDate: nextMonth,
+      suggestedDueDate: nextMonth,
+      createdAt: Date.now() - 15 * 24 * 60 * 60 * 1000,
+      goalId: "fitness-health",
+      tags: ["health", "doctor", "preventive"],
+      completed: false,
+      priority: "high",
+      isArchived: false,
+      isQuiet: false,
+      repeatPattern: null,
+      completionTimestamp: null,
+      description:
+        "Schedule annual physical with Dr. Reynolds - include blood work and fitness assessment",
+    },
+
+    // Career Development Tasks
+    {
+      id: "career-1",
+      title: "Complete AWS certification course",
+      dueDate: twoWeeks,
+      suggestedDueDate: twoWeeks,
+      createdAt: Date.now() - 30 * 24 * 60 * 60 * 1000,
+      goalId: "career-development",
+      tags: ["certification", "cloud", "learning"],
+      completed: false,
+      priority: "high",
+      isArchived: false,
+      isQuiet: false,
+      repeatPattern: null,
+      completionTimestamp: null,
+      description:
+        "Finish remaining modules in AWS Solutions Architect course and schedule exam",
+    },
+    {
+      id: "career-2",
+      title: "Update LinkedIn profile",
+      dueDate: today,
+      suggestedDueDate: today,
+      createdAt: Date.now() - 5 * 24 * 60 * 60 * 1000,
+      goalId: "career-development",
+      tags: ["networking", "professional"],
+      completed: true,
+      priority: "medium",
+      isArchived: false,
+      isQuiet: false,
+      repeatPattern: null,
+      completionTimestamp: Date.now() - 1 * 24 * 60 * 60 * 1000,
+      description:
+        "Update with recent projects, refreshed summary, and add new skills",
+    },
+    {
+      id: "career-3",
+      title: "Prepare for quarterly performance review",
+      dueDate: nextWeek,
+      suggestedDueDate: nextWeek,
+      createdAt: Date.now() - 10 * 24 * 60 * 60 * 1000,
+      goalId: "career-development",
+      tags: ["work", "review", "preparation"],
+      completed: false,
+      priority: "high",
+      isArchived: false,
+      isQuiet: false,
+      repeatPattern: null,
+      completionTimestamp: null,
+      description:
+        "Document achievements, gather metrics, outline growth areas and goals for next quarter",
+    },
+    {
+      id: "career-4",
+      title: "Read industry newsletter",
+      dueDate: today,
+      suggestedDueDate: today,
+      createdAt: Date.now() - 60 * 24 * 60 * 60 * 1000,
+      goalId: "career-development",
+      tags: ["reading", "industry-news", "trends"],
+      completed: false,
+      priority: "low",
+      isArchived: false,
+      isQuiet: false,
+      repeatPattern: { type: "weekly", interval: 1 },
+      completionTimestamp: null,
+      description:
+        "Stay current on latest developments, technologies, and market trends",
+    },
+
+    // Financial Freedom Tasks
+    {
+      id: "finance-1",
+      title: "Review monthly budget",
+      dueDate: nextWeek,
+      suggestedDueDate: nextWeek,
+      createdAt: Date.now() - 90 * 24 * 60 * 60 * 1000,
+      goalId: "personal-finance",
+      tags: ["budget", "money", "review"],
+      completed: false,
+      priority: "high",
+      isArchived: false,
+      isQuiet: false,
+      repeatPattern: { type: "monthly", interval: 1 },
+      completionTimestamp: null,
+      description:
+        "Check spending against budget, adjust categories as needed, identify areas to optimize",
+    },
+    {
+      id: "finance-2",
+      title: "Research investment options",
+      dueDate: nextWeek,
+      suggestedDueDate: nextWeek,
+      createdAt: Date.now() - 20 * 24 * 60 * 60 * 1000,
+      goalId: "personal-finance",
+      tags: ["investing", "research", "retirement"],
+      completed: false,
+      priority: "medium",
+      isArchived: false,
+      isQuiet: false,
+      repeatPattern: null,
+      completionTimestamp: null,
+      description:
+        "Compare ETFs, consider rebalancing portfolio, check fee structures",
+    },
+    {
+      id: "finance-3",
+      title: "Set up automatic savings transfer",
+      dueDate: tomorrow,
+      suggestedDueDate: tomorrow,
+      createdAt: Date.now() - 10 * 24 * 60 * 60 * 1000,
+      goalId: "personal-finance",
+      tags: ["automation", "savings", "banking"],
+      completed: false,
+      priority: "medium",
+      isArchived: false,
+      isQuiet: false,
+      repeatPattern: null,
+      completionTimestamp: null,
+      description:
+        "Configure 10% of paycheck to automatically transfer to high-yield savings account",
+    },
+
+    // Reading Goal Tasks
+    {
+      id: "reading-1",
+      title: "Finish 'Atomic Habits' book",
+      dueDate: nextWeek,
+      suggestedDueDate: nextWeek,
+      createdAt: Date.now() - 15 * 24 * 60 * 60 * 1000,
+      goalId: "reading-books",
+      tags: ["book", "self-improvement", "habits"],
+      completed: false,
+      priority: "medium",
+      isArchived: false,
+      isQuiet: false,
+      repeatPattern: null,
+      completionTimestamp: null,
+      description:
+        "Currently on chapter 8 - read remaining chapters and take notes on key concepts",
+    },
+    {
+      id: "reading-2",
+      title: "Daily reading session - 30 minutes",
+      dueDate: today,
+      suggestedDueDate: today,
+      createdAt: Date.now() - 120 * 24 * 60 * 60 * 1000,
+      goalId: "reading-books",
+      tags: ["reading", "daily-habit", "books"],
+      completed: false,
+      priority: "medium",
+      isArchived: false,
+      isQuiet: false,
+      repeatPattern: { type: "daily", interval: 1 },
+      completionTimestamp: null,
+      description:
+        "Dedicate 30 minutes of focused reading time with no distractions",
+    },
+    {
+      id: "reading-3",
+      title: "Update reading list & choose next book",
+      dueDate: twoWeeks,
+      suggestedDueDate: twoWeeks,
+      createdAt: Date.now() - 10 * 24 * 60 * 60 * 1000,
+      goalId: "reading-books",
+      tags: ["planning", "books", "list"],
+      completed: false,
+      priority: "low",
+      isArchived: false,
+      isQuiet: false,
+      repeatPattern: { type: "monthly", interval: 1 },
+      completionTimestamp: null,
+      description:
+        "Refresh reading list, prioritize next books, consider mix of fiction and non-fiction",
+    },
+
+    // Side Project Tasks
+    {
+      id: "app-1",
+      title: "Implement user authentication system",
+      dueDate: nextWeek,
+      suggestedDueDate: nextWeek,
+      createdAt: Date.now() - 25 * 24 * 60 * 60 * 1000,
+      goalId: "side-project",
+      tags: ["development", "coding", "auth"],
+      completed: true,
+      priority: "high",
+      isArchived: false,
+      isQuiet: false,
+      repeatPattern: null,
+      completionTimestamp: Date.now() - 2 * 24 * 60 * 60 * 1000,
+      description:
+        "Set up Firebase auth with email/password and Google sign-in options",
+    },
+    {
+      id: "app-2",
+      title: "Design landing page mockup",
+      dueDate: tomorrow,
+      suggestedDueDate: tomorrow,
+      createdAt: Date.now() - 15 * 24 * 60 * 60 * 1000,
+      goalId: "side-project",
+      tags: ["design", "UI", "mockup"],
+      completed: false,
+      priority: "medium",
+      isArchived: false,
+      isQuiet: false,
+      repeatPattern: null,
+      completionTimestamp: null,
+      description:
+        "Create Figma design for homepage with value proposition, features, and signup form",
+    },
+    {
+      id: "app-3",
+      title: "Conduct user testing session",
+      dueDate: twoWeeks,
+      suggestedDueDate: twoWeeks,
+      createdAt: Date.now() - 5 * 24 * 60 * 60 * 1000,
+      goalId: "side-project",
+      tags: ["testing", "feedback", "UX"],
+      completed: false,
+      priority: "high",
+      isArchived: false,
+      isQuiet: false,
+      repeatPattern: null,
+      completionTimestamp: null,
+      description:
+        "Set up 30-minute sessions with 5 test users, prepare testing script and scenarios",
+    },
+    {
+      id: "app-4",
+      title: "Work on app for 1 hour",
+      dueDate: today,
+      suggestedDueDate: today,
+      createdAt: Date.now() - 30 * 24 * 60 * 60 * 1000,
+      goalId: "side-project",
+      tags: ["coding", "development", "consistent"],
+      completed: false,
+      priority: "medium",
+      isArchived: false,
+      isQuiet: false,
+      repeatPattern: { type: "daily", interval: 1 },
+      completionTimestamp: null,
+      description:
+        "Dedicated daily coding session to maintain momentum on the project",
+    },
+  ];
+
+  // Add tasks
+  for (const task of realisticTasks) {
+    await db.addTask(task);
+  }
+
+  // Create history for daily tasks
+  const now = Date.now();
+  const dayInMs = 24 * 60 * 60 * 1000;
+
+  // Daily reading history (regular but with occasional misses)
+  for (let i = 1; i <= 30; i++) {
+    // Skip some days to make it realistic
+    if (i % 4 === 0 || i % 7 === 0) {
+      continue;
+    }
+
+    const timestamp = now - i * dayInMs;
+    await db.addHistoryEntry({
+      id: crypto.randomUUID(),
+      type: "complete",
+      entityId: "reading-2",
+      entityType: "task",
+      timestamp: timestamp,
+      details: { title: "Daily reading session - 30 minutes" },
+    });
+  }
+
+  // Daily app work (very consistent)
+  for (let i = 1; i <= 25; i++) {
+    // Skip very rarely - this person is dedicated!
+    if (i % 13 === 0) {
+      continue;
+    }
+
+    const timestamp = now - i * dayInMs;
+    await db.addHistoryEntry({
+      id: crypto.randomUUID(),
+      type: "complete",
+      entityId: "app-4",
+      entityType: "task",
+      timestamp: timestamp,
+      details: { title: "Work on app for 1 hour" },
+    });
+  }
+
+  // Morning runs (somewhat consistent but with more gaps)
+  for (let i = 1; i <= 40; i++) {
+    // Skip more frequently - running is harder to maintain
+    if (i % 3 === 0 || i % 5 === 0) {
+      continue;
+    }
+
+    const timestamp = now - i * dayInMs;
+    await db.addHistoryEntry({
+      id: crypto.randomUUID(),
+      type: "complete",
+      entityId: "fitness-1",
+      entityType: "task",
+      timestamp: timestamp,
+      details: { title: "Morning run - 5K" },
+    });
+  }
+
+  console.log("Realistic goals and tasks added successfully!");
+};
+
+/**
  * Add more pre-built data to the application.
  * This will add additional goals and tasks beyond the default ones.
  */
@@ -12,308 +511,312 @@ export const addPrebuiltData = async (): Promise<void> => {
   // If any of these goals already exist, we'll assume data was already added
   if (existingGoals.some((goal) => additionalGoalIds.includes(goal.id))) {
     console.log("Additional pre-built data already exists. Skipping.");
-    return;
-  }
+  } else {
+    console.log("Adding additional pre-built data...");
 
-  // Create some additional goals
-  const additionalGoals: Goal[] = [
-    {
-      id: "learning-goal",
-      title: "Learning Journey",
-      createdAt: Date.now() - 20 * 24 * 60 * 60 * 1000, // 20 days ago
-      taskIds: [],
-      order: 3,
-      streakCounter: 4,
-      lastCompletedDate: new Date().toISOString().split("T")[0],
-      color: "#FF9800", // Orange
-      level: 1,
-      xp: 120,
-    },
-    {
-      id: "home-projects",
-      title: "Home Projects",
-      createdAt: Date.now() - 15 * 24 * 60 * 60 * 1000, // 15 days ago
-      taskIds: [],
-      order: 4,
-      streakCounter: 1,
-      lastCompletedDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
-        .toISOString()
-        .split("T")[0],
-      color: "#795548", // Brown
-      level: 1,
-      xp: 85,
-    },
-    {
-      id: "family-time",
-      title: "Family Time",
-      createdAt: Date.now() - 25 * 24 * 60 * 60 * 1000, // 25 days ago
-      taskIds: [],
-      order: 5,
-      streakCounter: 6,
-      lastCompletedDate: new Date().toISOString().split("T")[0],
-      color: "#E91E63", // Pink
-      level: 2,
-      xp: 220,
-      badges: ["consistent-effort", "family-first"],
-    },
-  ];
+    // Create some additional goals
+    const additionalGoals: Goal[] = [
+      {
+        id: "learning-goal",
+        title: "Learning Journey",
+        createdAt: Date.now() - 20 * 24 * 60 * 60 * 1000, // 20 days ago
+        taskIds: [],
+        order: 3,
+        streakCounter: 4,
+        lastCompletedDate: new Date().toISOString().split("T")[0],
+        color: "#FF9800", // Orange
+        level: 1,
+        xp: 120,
+      },
+      {
+        id: "home-projects",
+        title: "Home Projects",
+        createdAt: Date.now() - 15 * 24 * 60 * 60 * 1000, // 15 days ago
+        taskIds: [],
+        order: 4,
+        streakCounter: 1,
+        lastCompletedDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .split("T")[0],
+        color: "#795548", // Brown
+        level: 1,
+        xp: 85,
+      },
+      {
+        id: "family-time",
+        title: "Family Time",
+        createdAt: Date.now() - 25 * 24 * 60 * 60 * 1000, // 25 days ago
+        taskIds: [],
+        order: 5,
+        streakCounter: 6,
+        lastCompletedDate: new Date().toISOString().split("T")[0],
+        color: "#E91E63", // Pink
+        level: 2,
+        xp: 220,
+        badges: ["consistent-effort", "family-first"],
+      },
+    ];
 
-  // Add goals
-  for (const goal of additionalGoals) {
-    await db.addGoal(goal);
-  }
-
-  // Create additional tasks
-  const today = new Date().toISOString().split("T")[0];
-  const tomorrow = new Date(Date.now() + 1 * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .split("T")[0];
-  const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .split("T")[0];
-
-  const additionalTasks: Task[] = [
-    // Learning Journey Tasks
-    {
-      id: "task-learn-1",
-      title: "Complete online course module",
-      dueDate: today,
-      suggestedDueDate: today,
-      createdAt: Date.now() - 10 * 24 * 60 * 60 * 1000,
-      goalId: "learning-goal",
-      tags: ["course", "education"],
-      completed: false,
-      priority: "high",
-      isArchived: false,
-      isQuiet: false,
-      repeatPattern: { type: "weekly", interval: 1 },
-      completionTimestamp: null,
-      xp: 60,
-    },
-    {
-      id: "task-learn-2",
-      title: "Practice new language for 20 minutes",
-      dueDate: today,
-      suggestedDueDate: today,
-      createdAt: Date.now() - 20 * 24 * 60 * 60 * 1000,
-      goalId: "learning-goal",
-      tags: ["language", "practice"],
-      completed: true,
-      priority: "medium",
-      isArchived: false,
-      isQuiet: false,
-      repeatPattern: { type: "daily", interval: 1 },
-      completionTimestamp: Date.now() - 1 * 24 * 60 * 60 * 1000,
-      xp: 40,
-      timeSpent: 20 * 60 * 1000,
-    },
-    {
-      id: "task-learn-3",
-      title: "Research new topic of interest",
-      dueDate: nextWeek,
-      suggestedDueDate: nextWeek,
-      createdAt: Date.now() - 5 * 24 * 60 * 60 * 1000,
-      goalId: "learning-goal",
-      tags: ["research", "curiosity"],
-      completed: false,
-      priority: "low",
-      isArchived: false,
-      isQuiet: false,
-      repeatPattern: null,
-      completionTimestamp: null,
-      xp: 50,
-    },
-
-    // Home Projects Tasks
-    {
-      id: "task-home-1",
-      title: "Organize garage",
-      dueDate: nextWeek,
-      suggestedDueDate: nextWeek,
-      createdAt: Date.now() - 7 * 24 * 60 * 60 * 1000,
-      goalId: "home-projects",
-      tags: ["cleaning", "organization"],
-      completed: false,
-      priority: "medium",
-      isArchived: false,
-      isQuiet: false,
-      repeatPattern: null,
-      completionTimestamp: null,
-      xp: 80,
-    },
-    {
-      id: "task-home-2",
-      title: "Fix leaky faucet",
-      dueDate: tomorrow,
-      suggestedDueDate: tomorrow,
-      createdAt: Date.now() - 3 * 24 * 60 * 60 * 1000,
-      goalId: "home-projects",
-      tags: ["repair", "plumbing"],
-      completed: false,
-      priority: "high",
-      isArchived: false,
-      isQuiet: false,
-      repeatPattern: null,
-      completionTimestamp: null,
-      xp: 40,
-    },
-    {
-      id: "task-home-3",
-      title: "Weekly home maintenance check",
-      dueDate: today,
-      suggestedDueDate: today,
-      createdAt: Date.now() - 15 * 24 * 60 * 60 * 1000,
-      goalId: "home-projects",
-      tags: ["maintenance", "routine"],
-      completed: true,
-      priority: "medium",
-      isArchived: false,
-      isQuiet: false,
-      repeatPattern: { type: "weekly", interval: 1 },
-      completionTimestamp: Date.now() - 2 * 24 * 60 * 60 * 1000,
-      xp: 35,
-    },
-
-    // Family Time Tasks
-    {
-      id: "task-family-1",
-      title: "Family game night",
-      dueDate: tomorrow,
-      suggestedDueDate: tomorrow,
-      createdAt: Date.now() - 5 * 24 * 60 * 60 * 1000,
-      goalId: "family-time",
-      tags: ["games", "fun"],
-      completed: false,
-      priority: "high",
-      isArchived: false,
-      isQuiet: false,
-      repeatPattern: { type: "weekly", interval: 1 },
-      completionTimestamp: null,
-      xp: 60,
-    },
-    {
-      id: "task-family-2",
-      title: "Visit grandparents",
-      dueDate: nextWeek,
-      suggestedDueDate: nextWeek,
-      createdAt: Date.now() - 10 * 24 * 60 * 60 * 1000,
-      goalId: "family-time",
-      tags: ["visit", "relatives"],
-      completed: false,
-      priority: "medium",
-      isArchived: false,
-      isQuiet: false,
-      repeatPattern: { type: "monthly", interval: 1 },
-      completionTimestamp: null,
-      xp: 70,
-    },
-    {
-      id: "task-family-3",
-      title: "Daily family dinner",
-      dueDate: today,
-      suggestedDueDate: today,
-      createdAt: Date.now() - 25 * 24 * 60 * 60 * 1000,
-      goalId: "family-time",
-      tags: ["dinner", "daily-ritual"],
-      completed: true,
-      priority: "high",
-      isArchived: false,
-      isQuiet: false,
-      repeatPattern: { type: "daily", interval: 1 },
-      completionTimestamp: Date.now() - 1 * 24 * 60 * 60 * 1000,
-      xp: 30,
-      timeSpent: 60 * 60 * 1000,
-    },
-
-    // Some additional unassigned tasks
-    {
-      id: "task-unassigned-1",
-      title: "Buy groceries",
-      dueDate: tomorrow,
-      suggestedDueDate: tomorrow,
-      createdAt: Date.now() - 1 * 24 * 60 * 60 * 1000,
-      goalId: null,
-      tags: ["shopping", "food"],
-      completed: false,
-      priority: "high",
-      isArchived: false,
-      isQuiet: false,
-      repeatPattern: { type: "weekly", interval: 1 },
-      completionTimestamp: null,
-      xp: 25,
-    },
-    {
-      id: "task-unassigned-2",
-      title: "Schedule dentist appointment",
-      dueDate: nextWeek,
-      suggestedDueDate: nextWeek,
-      createdAt: Date.now() - 2 * 24 * 60 * 60 * 1000,
-      goalId: null,
-      tags: ["health", "appointment"],
-      completed: false,
-      priority: "medium",
-      isArchived: false,
-      isQuiet: false,
-      repeatPattern: null,
-      completionTimestamp: null,
-      xp: 30,
-    },
-  ];
-
-  // Add tasks
-  for (const task of additionalTasks) {
-    await db.addTask(task);
-  }
-
-  // Create history for daily family dinner (task-family-3)
-  const now = Date.now();
-  for (let i = 1; i <= 25; i++) {
-    // Skip occasionally to show some missed days
-    if (i % 11 === 0 || i % 17 === 0) {
-      continue;
+    // Add goals
+    for (const goal of additionalGoals) {
+      await db.addGoal(goal);
     }
 
-    const timestamp = now - i * 24 * 60 * 60 * 1000;
-    await db.addHistoryEntry({
-      id: crypto.randomUUID(),
-      type: "complete",
-      entityId: "task-family-3",
-      entityType: "task",
-      timestamp: timestamp,
-      details: { title: "Daily family dinner" },
-    });
-  }
+    // Create additional tasks
+    const today = new Date().toISOString().split("T")[0];
+    const tomorrow = new Date(Date.now() + 1 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split("T")[0];
+    const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split("T")[0];
 
-  // Create history for language practice (task-learn-2)
-  for (let i = 1; i <= 20; i++) {
-    // Skip more frequently to show a more realistic language learning journey
-    if (i % 3 === 0 || i % 5 === 0) {
-      continue;
+    const additionalTasks: Task[] = [
+      // Learning Journey Tasks
+      {
+        id: "task-learn-1",
+        title: "Complete online course module",
+        dueDate: today,
+        suggestedDueDate: today,
+        createdAt: Date.now() - 10 * 24 * 60 * 60 * 1000,
+        goalId: "learning-goal",
+        tags: ["course", "education"],
+        completed: false,
+        priority: "high",
+        isArchived: false,
+        isQuiet: false,
+        repeatPattern: { type: "weekly", interval: 1 },
+        completionTimestamp: null,
+        xp: 60,
+      },
+      {
+        id: "task-learn-2",
+        title: "Practice new language for 20 minutes",
+        dueDate: today,
+        suggestedDueDate: today,
+        createdAt: Date.now() - 20 * 24 * 60 * 60 * 1000,
+        goalId: "learning-goal",
+        tags: ["language", "practice"],
+        completed: true,
+        priority: "medium",
+        isArchived: false,
+        isQuiet: false,
+        repeatPattern: { type: "daily", interval: 1 },
+        completionTimestamp: Date.now() - 1 * 24 * 60 * 60 * 1000,
+        xp: 40,
+        timeSpent: 20 * 60 * 1000,
+      },
+      {
+        id: "task-learn-3",
+        title: "Research new topic of interest",
+        dueDate: nextWeek,
+        suggestedDueDate: nextWeek,
+        createdAt: Date.now() - 5 * 24 * 60 * 60 * 1000,
+        goalId: "learning-goal",
+        tags: ["research", "curiosity"],
+        completed: false,
+        priority: "low",
+        isArchived: false,
+        isQuiet: false,
+        repeatPattern: null,
+        completionTimestamp: null,
+        xp: 50,
+      },
+
+      // Home Projects Tasks
+      {
+        id: "task-home-1",
+        title: "Organize garage",
+        dueDate: nextWeek,
+        suggestedDueDate: nextWeek,
+        createdAt: Date.now() - 7 * 24 * 60 * 60 * 1000,
+        goalId: "home-projects",
+        tags: ["cleaning", "organization"],
+        completed: false,
+        priority: "medium",
+        isArchived: false,
+        isQuiet: false,
+        repeatPattern: null,
+        completionTimestamp: null,
+        xp: 80,
+      },
+      {
+        id: "task-home-2",
+        title: "Fix leaky faucet",
+        dueDate: tomorrow,
+        suggestedDueDate: tomorrow,
+        createdAt: Date.now() - 3 * 24 * 60 * 60 * 1000,
+        goalId: "home-projects",
+        tags: ["repair", "plumbing"],
+        completed: false,
+        priority: "high",
+        isArchived: false,
+        isQuiet: false,
+        repeatPattern: null,
+        completionTimestamp: null,
+        xp: 40,
+      },
+      {
+        id: "task-home-3",
+        title: "Weekly home maintenance check",
+        dueDate: today,
+        suggestedDueDate: today,
+        createdAt: Date.now() - 15 * 24 * 60 * 60 * 1000,
+        goalId: "home-projects",
+        tags: ["maintenance", "routine"],
+        completed: true,
+        priority: "medium",
+        isArchived: false,
+        isQuiet: false,
+        repeatPattern: { type: "weekly", interval: 1 },
+        completionTimestamp: Date.now() - 2 * 24 * 60 * 60 * 1000,
+        xp: 35,
+      },
+
+      // Family Time Tasks
+      {
+        id: "task-family-1",
+        title: "Family game night",
+        dueDate: tomorrow,
+        suggestedDueDate: tomorrow,
+        createdAt: Date.now() - 5 * 24 * 60 * 60 * 1000,
+        goalId: "family-time",
+        tags: ["games", "fun"],
+        completed: false,
+        priority: "high",
+        isArchived: false,
+        isQuiet: false,
+        repeatPattern: { type: "weekly", interval: 1 },
+        completionTimestamp: null,
+        xp: 60,
+      },
+      {
+        id: "task-family-2",
+        title: "Visit grandparents",
+        dueDate: nextWeek,
+        suggestedDueDate: nextWeek,
+        createdAt: Date.now() - 10 * 24 * 60 * 60 * 1000,
+        goalId: "family-time",
+        tags: ["visit", "relatives"],
+        completed: false,
+        priority: "medium",
+        isArchived: false,
+        isQuiet: false,
+        repeatPattern: { type: "monthly", interval: 1 },
+        completionTimestamp: null,
+        xp: 70,
+      },
+      {
+        id: "task-family-3",
+        title: "Daily family dinner",
+        dueDate: today,
+        suggestedDueDate: today,
+        createdAt: Date.now() - 25 * 24 * 60 * 60 * 1000,
+        goalId: "family-time",
+        tags: ["dinner", "daily-ritual"],
+        completed: true,
+        priority: "high",
+        isArchived: false,
+        isQuiet: false,
+        repeatPattern: { type: "daily", interval: 1 },
+        completionTimestamp: Date.now() - 1 * 24 * 60 * 60 * 1000,
+        xp: 30,
+        timeSpent: 60 * 60 * 1000,
+      },
+
+      // Some additional unassigned tasks
+      {
+        id: "task-unassigned-1",
+        title: "Buy groceries",
+        dueDate: tomorrow,
+        suggestedDueDate: tomorrow,
+        createdAt: Date.now() - 1 * 24 * 60 * 60 * 1000,
+        goalId: null,
+        tags: ["shopping", "food"],
+        completed: false,
+        priority: "high",
+        isArchived: false,
+        isQuiet: false,
+        repeatPattern: { type: "weekly", interval: 1 },
+        completionTimestamp: null,
+        xp: 25,
+      },
+      {
+        id: "task-unassigned-2",
+        title: "Schedule dentist appointment",
+        dueDate: nextWeek,
+        suggestedDueDate: nextWeek,
+        createdAt: Date.now() - 2 * 24 * 60 * 60 * 1000,
+        goalId: null,
+        tags: ["health", "appointment"],
+        completed: false,
+        priority: "medium",
+        isArchived: false,
+        isQuiet: false,
+        repeatPattern: null,
+        completionTimestamp: null,
+        xp: 30,
+      },
+    ];
+
+    // Add tasks
+    for (const task of additionalTasks) {
+      await db.addTask(task);
     }
 
-    const timestamp = now - i * 24 * 60 * 60 * 1000;
-    await db.addHistoryEntry({
-      id: crypto.randomUUID(),
-      type: "complete",
-      entityId: "task-learn-2",
-      entityType: "task",
-      timestamp: timestamp,
-      details: { title: "Practice new language for 20 minutes" },
-    });
+    // Create history for daily family dinner (task-family-3)
+    const now = Date.now();
+    for (let i = 1; i <= 25; i++) {
+      // Skip occasionally to show some missed days
+      if (i % 11 === 0 || i % 17 === 0) {
+        continue;
+      }
+
+      const timestamp = now - i * 24 * 60 * 60 * 1000;
+      await db.addHistoryEntry({
+        id: crypto.randomUUID(),
+        type: "complete",
+        entityId: "task-family-3",
+        entityType: "task",
+        timestamp: timestamp,
+        details: { title: "Daily family dinner" },
+      });
+    }
+
+    // Create history for language practice (task-learn-2)
+    for (let i = 1; i <= 20; i++) {
+      // Skip more frequently to show a more realistic language learning journey
+      if (i % 3 === 0 || i % 5 === 0) {
+        continue;
+      }
+
+      const timestamp = now - i * 24 * 60 * 60 * 1000;
+      await db.addHistoryEntry({
+        id: crypto.randomUUID(),
+        type: "complete",
+        entityId: "task-learn-2",
+        entityType: "task",
+        timestamp: timestamp,
+        details: { title: "Practice new language for 20 minutes" },
+      });
+    }
+
+    // Create history for weekly home maintenance (task-home-3)
+    for (let i = 1; i <= 15; i += 7) {
+      const timestamp = now - i * 24 * 60 * 60 * 1000;
+      await db.addHistoryEntry({
+        id: crypto.randomUUID(),
+        type: "complete",
+        entityId: "task-home-3",
+        entityType: "task",
+        timestamp: timestamp,
+        details: { title: "Weekly home maintenance check" },
+      });
+    }
   }
 
-  // Create history for weekly home maintenance (task-home-3)
-  for (let i = 1; i <= 15; i += 7) {
-    const timestamp = now - i * 24 * 60 * 60 * 1000;
-    await db.addHistoryEntry({
-      id: crypto.randomUUID(),
-      type: "complete",
-      entityId: "task-home-3",
-      entityType: "task",
-      timestamp: timestamp,
-      details: { title: "Weekly home maintenance check" },
-    });
-  }
+  // Add realistic goals and tasks
+  await addRealisticGoals();
 
   // Add theme-based tasks
   await addThemeBasedTasks();
@@ -558,63 +1061,98 @@ export const addInactivityDemoData = async (): Promise<void> => {
  * This will ensure there's data to demonstrate the Daily Themes Mode feature.
  */
 export const addThemeBasedTasks = async (): Promise<void> => {
-  // Get the daily themes
-  const themes = await db.getDailyThemes();
-  if (themes.length === 0) {
-    console.log("No themes found. Creating default themes first.");
-    await db.createDefaultThemes();
-    themes.push(...(await db.getDailyThemes()));
+  console.log("Checking for existing theme-based tasks...");
+
+  // Check if theme tasks already exist
+  const existingTasks = await db.getTasks();
+  const themeTaskExists = existingTasks.some((task) =>
+    task.id.startsWith("theme-")
+  );
+
+  if (themeTaskExists) {
+    console.log("Theme-based tasks already exist. Skipping.");
+    return;
   }
 
-  const today = new Date().toISOString().split("T")[0];
-  const tomorrow = new Date(Date.now() + 1 * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .split("T")[0];
-  const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .split("T")[0];
+  console.log("No theme-based tasks found. Adding default themes and tasks...");
 
-  // Get a theme by day name
-  const getThemeByDay = (day: string): DailyTheme | undefined => {
-    return themes.find(
-      (theme) => theme.day.toLowerCase() === day.toLowerCase()
-    );
-  };
+  // Get existing themes or create default ones
+  let themes = await db.getDailyThemes();
 
-  // Tasks for Monday - Mind & Body
-  const mondayTheme = getThemeByDay("monday");
-  if (mondayTheme) {
-    const mondayTasks: Task[] = [
+  if (themes.length === 0) {
+    // Create default themes for each day
+    const defaultThemes = [
       {
-        id: "theme-task-monday-1",
-        title: "Morning yoga session",
-        dueDate: today,
-        suggestedDueDate: today,
-        createdAt: Date.now() - 7 * 24 * 60 * 60 * 1000,
+        id: "monday-theme",
+        day: "Monday",
+        name: "Growth & Learning",
+        tags: ["learning", "growth", "skills", "education"],
+        color: "#4CAF50", // Green
+        quote:
+          "The capacity to learn is a gift; the ability to learn is a skill; the willingness to learn is a choice.",
+      },
+      {
+        id: "tuesday-theme",
+        day: "Tuesday",
+        name: "Health & Wellness",
+        tags: ["health", "wellness", "fitness", "nutrition"],
+        color: "#2196F3", // Blue
+        quote: "Take care of your body. It's the only place you have to live.",
+      },
+      {
+        id: "wednesday-theme",
+        day: "Wednesday",
+        name: "Connection & Relationships",
+        tags: ["family", "friends", "connection", "social"],
+        color: "#9C27B0", // Purple
+        quote:
+          "The quality of your life is determined by the quality of your relationships.",
+      },
+      // Add more default themes as needed
+    ];
+
+    for (const theme of defaultThemes) {
+      await db.addDailyTheme(theme);
+    }
+
+    themes = defaultThemes;
+  }
+
+  // Monday theme tasks
+  const mondayTheme =
+    themes.find((theme) => theme.day === "Monday") || themes[0];
+  if (mondayTheme) {
+    const mondayTasks = [
+      {
+        id: "theme-monday-1",
+        title: "Read a chapter of a book",
+        dueDate: new Date().toISOString().split("T")[0], // Today
+        suggestedDueDate: new Date().toISOString().split("T")[0],
+        createdAt: Date.now(),
         goalId: null,
-        tags: ["health", "exercise", "mindfulness"],
+        tags: ["learning", "reading", "growth"],
         completed: false,
-        priority: "high",
+        priority: "medium",
         isArchived: false,
         isQuiet: false,
-        repeatPattern: { type: "weekly", interval: 1 },
+        repeatPattern: null,
         completionTimestamp: null,
         themeId: mondayTheme.id,
       },
       {
-        id: "theme-task-monday-2",
-        title: "Meditation practice",
-        dueDate: today,
-        suggestedDueDate: today,
-        createdAt: Date.now() - 14 * 24 * 60 * 60 * 1000,
+        id: "theme-monday-2",
+        title: "Watch an educational video",
+        dueDate: new Date().toISOString().split("T")[0], // Today
+        suggestedDueDate: new Date().toISOString().split("T")[0],
+        createdAt: Date.now(),
         goalId: null,
-        tags: ["mindfulness", "mental health"],
-        completed: true,
-        priority: "medium",
+        tags: ["learning", "education", "video"],
+        completed: false,
+        priority: "low",
         isArchived: false,
         isQuiet: false,
-        repeatPattern: { type: "daily", interval: 1 },
-        completionTimestamp: Date.now() - 1 * 24 * 60 * 60 * 1000,
+        repeatPattern: null,
+        completionTimestamp: null,
         themeId: mondayTheme.id,
       },
     ];
@@ -625,20 +1163,21 @@ export const addThemeBasedTasks = async (): Promise<void> => {
     }
   }
 
-  // Tasks for Tuesday - Work & Career
-  const tuesdayTheme = getThemeByDay("tuesday");
+  // Tuesday theme tasks
+  const tuesdayTheme =
+    themes.find((theme) => theme.day === "Tuesday") || themes[1];
   if (tuesdayTheme) {
-    const tuesdayTasks: Task[] = [
+    const tuesdayTasks = [
       {
-        id: "theme-task-tuesday-1",
-        title: "Update resume",
-        dueDate: tomorrow,
-        suggestedDueDate: tomorrow,
-        createdAt: Date.now() - 5 * 24 * 60 * 60 * 1000,
+        id: "theme-tuesday-1",
+        title: "30-minute workout",
+        dueDate: new Date().toISOString().split("T")[0], // Today
+        suggestedDueDate: new Date().toISOString().split("T")[0],
+        createdAt: Date.now(),
         goalId: null,
-        tags: ["career", "professional"],
+        tags: ["health", "fitness", "exercise"],
         completed: false,
-        priority: "medium",
+        priority: "high",
         isArchived: false,
         isQuiet: false,
         repeatPattern: null,
@@ -646,15 +1185,15 @@ export const addThemeBasedTasks = async (): Promise<void> => {
         themeId: tuesdayTheme.id,
       },
       {
-        id: "theme-task-tuesday-2",
-        title: "Career development research",
-        dueDate: nextWeek,
-        suggestedDueDate: nextWeek,
-        createdAt: Date.now() - 10 * 24 * 60 * 60 * 1000,
+        id: "theme-tuesday-2",
+        title: "Prepare a healthy meal",
+        dueDate: new Date().toISOString().split("T")[0], // Today
+        suggestedDueDate: new Date().toISOString().split("T")[0],
+        createdAt: Date.now(),
         goalId: null,
-        tags: ["career", "learning", "productivity"],
+        tags: ["health", "nutrition", "cooking"],
         completed: false,
-        priority: "low",
+        priority: "medium",
         isArchived: false,
         isQuiet: false,
         repeatPattern: null,
@@ -669,31 +1208,32 @@ export const addThemeBasedTasks = async (): Promise<void> => {
     }
   }
 
-  // Tasks for Wednesday - Relationships
-  const wednesdayTheme = getThemeByDay("wednesday");
+  // Wednesday theme tasks
+  const wednesdayTheme =
+    themes.find((theme) => theme.day === "Wednesday") || themes[2];
   if (wednesdayTheme) {
-    const wednesdayTasks: Task[] = [
+    const wednesdayTasks = [
       {
-        id: "theme-task-wednesday-1",
-        title: "Call a friend",
-        dueDate: tomorrow,
-        suggestedDueDate: tomorrow,
-        createdAt: Date.now() - 3 * 24 * 60 * 60 * 1000,
+        id: "theme-wednesday-1",
+        title: "Call a friend or family member",
+        dueDate: new Date().toISOString().split("T")[0], // Today
+        suggestedDueDate: new Date().toISOString().split("T")[0],
+        createdAt: Date.now(),
         goalId: null,
-        tags: ["friends", "social", "connection"],
+        tags: ["family", "connection", "communication"],
         completed: false,
         priority: "high",
         isArchived: false,
         isQuiet: false,
-        repeatPattern: { type: "weekly", interval: 1 },
+        repeatPattern: null,
         completionTimestamp: null,
         themeId: wednesdayTheme.id,
       },
       {
-        id: "theme-task-wednesday-2",
-        title: "Family dinner planning",
-        dueDate: nextWeek,
-        suggestedDueDate: nextWeek,
+        id: "theme-wednesday-2",
+        title: "Schedule a get-together",
+        dueDate: new Date().toISOString().split("T")[0], // Today
+        suggestedDueDate: new Date().toISOString().split("T")[0],
         createdAt: Date.now() - 6 * 24 * 60 * 60 * 1000,
         goalId: null,
         tags: ["family", "connection", "social"],

@@ -12,6 +12,7 @@ import {
   List,
   Clock,
   X,
+  Archive,
 } from "lucide-react";
 import {
   Dialog,
@@ -234,9 +235,24 @@ export function TaskList() {
     }
   };
 
+  // Add a function to check if a task belongs to an archived goal
+  const isTaskFromArchivedGoal = (task: Task): boolean => {
+    if (!task.goalId) return false;
+    const goal = goals.find((g) => g.id === task.goalId);
+    return goal?.isArchived === true;
+  };
+
   // Sort tasks: incomplete first, then by priority, then by due date, then by creation date
   const sortedTasks = [...filteredTasks].sort((a, b) => {
-    // First by completion status
+    // First check if tasks are from archived goals - prioritize those
+    const aFromArchivedGoal = isTaskFromArchivedGoal(a);
+    const bFromArchivedGoal = isTaskFromArchivedGoal(b);
+
+    if (aFromArchivedGoal !== bFromArchivedGoal) {
+      return aFromArchivedGoal ? -1 : 1; // Tasks from archived goals first
+    }
+
+    // Then by completion status
     if (a.completed !== b.completed) {
       return a.completed ? 1 : -1;
     }
@@ -412,11 +428,27 @@ export function TaskList() {
         {activeView === "list" || !currentGoalId ? (
           <>
             <ul className="space-y-2">
-              {displayTasks.map((task) => (
-                <li key={task.id} className="border rounded-lg shadow-sm">
-                  <TaskItem task={task} />
-                </li>
-              ))}
+              {displayTasks.map((task) => {
+                const fromArchivedGoal = isTaskFromArchivedGoal(task);
+                return (
+                  <li
+                    key={task.id}
+                    className={`border rounded-lg shadow-sm ${
+                      fromArchivedGoal
+                        ? "border-amber-300 dark:border-amber-700"
+                        : ""
+                    }`}
+                  >
+                    {fromArchivedGoal && (
+                      <div className="bg-amber-100 dark:bg-amber-950 px-2 py-0.5 text-xs flex items-center">
+                        <Archive className="h-3 w-3 mr-1" />
+                        <span>From archived goal</span>
+                      </div>
+                    )}
+                    <TaskItem task={task} />
+                  </li>
+                );
+              })}
               {displayTasks.length === 0 && (
                 <li className="text-center py-8 text-muted-foreground">
                   No tasks to display

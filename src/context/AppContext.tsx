@@ -15,7 +15,7 @@ import { addPrebuiltData, addInactivityDemoData } from "@/lib/prebuiltData";
 import { getInactiveGoals } from "@/lib/goalUtils";
 
 // Define the type for our context
-interface AppContextType {
+export interface AppContextType {
   goals: (Goal & { stats: any })[];
   tasks: Task[];
   filteredTasks: Task[];
@@ -84,6 +84,11 @@ interface AppContextType {
 
   // New method
   forceCheckBadges: () => Promise<void>;
+
+  // New properties
+  filteredGoals: Goal[];
+  filterGoals: (filter: "active" | "archived") => void;
+  archiveGoal: (id: string) => Promise<void>;
 }
 
 // Create the context with a default value
@@ -149,6 +154,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     null
   );
   const [isDailyThemeModeEnabled, setIsDailyThemeModeEnabled] = useState(false);
+
+  // New properties
+  const [filteredGoals, setFilteredGoals] = useState<Goal[]>([]);
 
   // Load data when component mounts
   useEffect(() => {
@@ -358,21 +366,29 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     try {
       console.log(`Filtering tasks for goal ${goalId || "all"}`);
 
-      // Log task counts for debugging
-      const quietTasksCount = tasksToFilter.filter(
-        (t) => t.isQuiet === true
-      ).length;
+      // Get lists of active and archived goal IDs
+      const activeGoalIds = goals
+        .filter((goal) => !goal.isArchived)
+        .map((goal) => goal.id);
+
+      const archivedGoalIds = goals
+        .filter((goal) => goal.isArchived === true) // Explicitly check true
+        .map((goal) => goal.id);
+
       console.log(
-        `Total tasks: ${tasksToFilter.length}, Quiet tasks: ${quietTasksCount}`
+        `Active goals: ${activeGoalIds.length}, Archived goals: ${archivedGoalIds.length}`
       );
 
       // First, filter out quiet tasks for the main task list
-      // Make sure we're explicitly checking for true/false
       const nonQuietTasks = tasksToFilter.filter(
         (task) => task.isQuiet !== true
       );
+
       const quietTasksList = tasksToFilter.filter(
-        (task) => task.isQuiet === true && !task.isArchived
+        (task) =>
+          task.isQuiet === true &&
+          !task.isArchived &&
+          (task.goalId ? activeGoalIds.includes(task.goalId) : true)
       );
 
       console.log(`Filtered quiet tasks: ${quietTasksList.length}`);
@@ -388,8 +404,37 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           )
         );
       } else {
-        // Show all non-archived tasks
-        setFilteredTasks(nonQuietTasks.filter((task) => !task.isArchived));
+        // Show all non-archived tasks with those from archived goals at the top
+
+        // Get tasks from archived goals
+        const tasksFromArchivedGoals: Task[] = [];
+        // Get regular tasks
+        const regularTasks: Task[] = [];
+
+        // Split tasks into two arrays - KEEP THIS SEPARATION
+        for (const task of nonQuietTasks) {
+          if (!task.isArchived) {
+            if (task.goalId && archivedGoalIds.includes(task.goalId)) {
+              tasksFromArchivedGoals.push(task);
+            } else if (!task.goalId || activeGoalIds.includes(task.goalId)) {
+              regularTasks.push(task);
+            }
+          }
+        }
+
+        console.log(
+          `Tasks from archived goals: ${tasksFromArchivedGoals.length}`
+        );
+        console.log(`Regular tasks: ${regularTasks.length}`);
+
+        // Create prioritized list - archived goal tasks first
+        const prioritizedTasks = [...tasksFromArchivedGoals, ...regularTasks];
+        console.log(
+          `Total tasks after prioritization: ${prioritizedTasks.length}`
+        );
+
+        // Set the filtered tasks
+        setFilteredTasks(prioritizedTasks);
       }
     } catch (error) {
       console.error("Error applying task filter:", error);
@@ -1299,6 +1344,124 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  // Filter goals by active/archived state
+  const filterGoals = (filter: "active" | "archived") => {
+    try {
+      console.log(
+        `Filtering goals by '${filter}' (total goals: ${goals.length})`
+      );
+
+      // Debug log all goals with their isArchived status
+      goals.forEach((goal: Goal & { stats: any }) => {
+        console.log(
+          `Goal: ${goal.title} (ID: ${goal.id}), isArchived: ${goal.isArchived}`
+        );
+      });
+
+      if (filter === "archived") {
+        // Explicitly filter for goals where isArchived is EXACTLY true (not just truthy)
+        const archivedGoals = goals.filter(
+          (goal: Goal & { stats: any }) => goal.isArchived === true
+        );
+        console.log(`Found ${archivedGoals.length} archived goals`);
+
+        // Log each archived goal for debugging
+        archivedGoals.forEach((goal: Goal & { stats: any }) => {
+          console.log(`Archived goal: ${goal.title} (ID: ${goal.id})`);
+        });
+
+        // Set the filtered goals
+        setFilteredGoals(archivedGoals);
+      } else {
+        // Show non-archived goals
+        const activeGoals = goals.filter(
+          (goal: Goal & { stats: any }) => !goal.isArchived
+        );
+        console.log(`Found ${activeGoals.length} active goals`);
+        setFilteredGoals(activeGoals);
+      }
+    } catch (error) {
+      console.error("Error filtering goals:", error);
+      // Fallback to showing all goals
+      setFilteredGoals(goals);
+    }
+  };
+
+  // Initially set filtered goals to active goals
+  useEffect(() => {
+    setFilteredGoals(goals.filter((goal) => !goal.isArchived));
+  }, [goals]);
+
+  // Archive goal
+  const archiveGoal = async (id: string): Promise<void> => {
+    try {
+      console.log(`Archiving goal with ID: ${id}`);
+
+      // Get the goal
+      const goal = await db.getGoal(id);
+      if (!goal) {
+        console.error("Goal not found for archiving:", id);
+        return;
+      }
+
+      console.log(`Found goal to archive: ${goal.title}`);
+
+      // Create a fully updated goal object with isArchived=true
+      const updatedGoal: Goal = {
+        ...goal,
+        isArchived: true,
+      };
+
+      console.log("Updating goal in database, setting isArchived to true");
+      await db.updateGoal(updatedGoal);
+      console.log("Database update successful");
+
+      // Create a history entry
+      await db.addHistoryEntry({
+        id: crypto.randomUUID(),
+        type: "archive",
+        entityId: id,
+        entityType: "goal",
+        timestamp: Date.now(),
+        details: { goalTitle: goal.title },
+      });
+
+      // If the archived goal was the current goal, set current goal to null
+      if (currentGoalId === id) {
+        setCurrentGoalId(null);
+      }
+
+      // Update goals in memory
+      console.log("Updating goals state in memory");
+      setGoals((prevGoals) =>
+        prevGoals.map((g) => (g.id === id ? { ...g, isArchived: true } : g))
+      );
+
+      // Refresh data from database
+      console.log("Refreshing data from database");
+      await refreshData();
+
+      toast({
+        title: "Goal Archived",
+        description: `"${goal.title}" has been moved to archives`,
+      });
+
+      // Explicitly trigger a filter for archived goals to update UI
+      console.log("Explicitly requesting archived goals filter");
+      setTimeout(() => {
+        filterGoals("archived");
+        console.log("Filtered goals state updated for archived goals");
+      }, 500);
+    } catch (error) {
+      console.error("Failed to archive goal:", error);
+      toast({
+        title: "Error",
+        description: "Failed to archive goal. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Wrap provider value in try-catch to prevent unhandled errors
   let providerValue: AppContextType;
   try {
@@ -1353,6 +1516,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       updateDailyTheme,
       getTasksMatchingCurrentTheme,
       isTaskMatchingCurrentTheme,
+      filteredGoals,
+      filterGoals,
+      archiveGoal,
     };
   } catch (error) {
     console.error("Error in AppContext:", error);
@@ -1410,6 +1576,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       updateDailyTheme: async () => "",
       getTasksMatchingCurrentTheme: () => [],
       isTaskMatchingCurrentTheme: () => false,
+      filteredGoals: [],
+      filterGoals: () => {},
+      archiveGoal: async () => {},
     };
   }
 

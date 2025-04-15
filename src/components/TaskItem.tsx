@@ -79,6 +79,11 @@ export function TaskItem({ task }: TaskItemProps) {
     appContext?.isTaskMatchingCurrentTheme || (() => false);
   const refreshData = appContext?.refreshData || (async () => {});
 
+  // Check if task belongs to an archived goal
+  const isFromArchivedGoal = task.goalId
+    ? goals.some((goal) => goal.id === task.goalId && goal.isArchived === true)
+    : false;
+
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editedTask, setEditedTask] = useState<Task>(task);
   const [showHistory, setShowHistory] = useState(false);
@@ -95,6 +100,9 @@ export function TaskItem({ task }: TaskItemProps) {
       setEditedTask(task);
     }
   }, [task, isEditDialogOpen]);
+
+  // Get the goal for this task
+  const taskGoal = task.goalId ? goals.find((g) => g.id === task.goalId) : null;
 
   // Determine priority styling
   const getPriorityColor = () => {
@@ -306,6 +314,24 @@ export function TaskItem({ task }: TaskItemProps) {
     }
   };
 
+  const handleArchive = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      await archiveTask(task.id);
+      toast({
+        title: "Task Archived",
+        description: `"${task.title}" has been archived`,
+      });
+    } catch (error) {
+      console.error("Failed to archive task:", error);
+      toast({
+        title: "Error",
+        description: "Failed to archive task",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <>
       <div
@@ -313,7 +339,8 @@ export function TaskItem({ task }: TaskItemProps) {
         className={cn(
           "flex items-start gap-2 task-item p-2 rounded-md",
           task.completed && "opacity-60",
-          matchesCurrentTheme && isDailyThemeModeEnabled && "theme-task"
+          matchesCurrentTheme && isDailyThemeModeEnabled && "theme-task",
+          isFromArchivedGoal && "bg-muted border-l-2 border-yellow-400"
         )}
         style={
           matchesCurrentTheme && currentDayTheme
@@ -383,12 +410,21 @@ export function TaskItem({ task }: TaskItemProps) {
                 </div>
 
                 {/* Goal - Always show in focus mode */}
-                {task.goalId &&
-                  (task.goalId !== currentGoalId || isFocusMode) && (
-                    <div className="flex items-center">
-                      {goals.find((g) => g.id === task.goalId)?.title}
-                    </div>
-                  )}
+                {task.goalId && (
+                  <div className="flex items-center">
+                    {isFromArchivedGoal ? (
+                      <Badge
+                        variant="outline"
+                        className="px-1.5 text-xs bg-yellow-50 text-yellow-700 border-yellow-300 dark:bg-yellow-950 dark:text-yellow-300"
+                      >
+                        <Archive className="h-2.5 w-2.5 mr-1" />
+                        {taskGoal?.title || "Archived Goal"}
+                      </Badge>
+                    ) : (
+                      taskGoal?.title
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Tags */}
@@ -464,7 +500,7 @@ export function TaskItem({ task }: TaskItemProps) {
                     <Edit size={14} className="mr-2" />
                     Edit
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => archiveTask(task.id)}>
+                  <DropdownMenuItem onClick={handleArchive}>
                     <Archive size={14} className="mr-2" />
                     Archive
                   </DropdownMenuItem>

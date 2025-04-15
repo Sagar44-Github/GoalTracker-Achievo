@@ -14,6 +14,7 @@ import {
   Moon,
   Trophy,
   Palette,
+  Archive,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,10 +29,12 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { GoalTab } from "./GoalTab";
 import { DailyThemeSettings } from "./DailyThemeSettings";
+import { useNavigate, useLocation } from "react-router-dom";
 
 export function Sidebar() {
   const {
@@ -47,6 +50,12 @@ export function Sidebar() {
     isDailyThemeModeEnabled,
     currentDayTheme,
   } = useApp();
+
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  // Check if currently viewing archived tasks
+  const isViewingArchived = location.pathname === "/archived-tasks";
 
   const [isCollapsed, setIsCollapsed] = useState(() => {
     const savedState = localStorage.getItem("sidebar-collapsed");
@@ -143,6 +152,19 @@ export function Sidebar() {
           variant="ghost"
           className={cn(
             "w-full justify-start mb-1",
+            location.pathname === "/archived-goals" &&
+              "bg-sidebar-accent text-sidebar-accent-foreground"
+          )}
+          onClick={() => navigate("/archived-goals")}
+        >
+          <Archive size={18} className="mr-2" />
+          {!isCollapsed && <span>Archived Goals</span>}
+        </Button>
+
+        <Button
+          variant="ghost"
+          className={cn(
+            "w-full justify-start mb-1",
             showGamificationView &&
               "bg-sidebar-accent text-sidebar-accent-foreground"
           )}
@@ -211,15 +233,17 @@ export function Sidebar() {
         )}
 
         <div className="space-y-1 overflow-y-auto flex-grow pr-1 scrollbar-thin">
-          {goals.map((goal) => (
-            <GoalTab
-              key={goal.id}
-              goal={goal}
-              isActive={currentGoalId === goal.id}
-              isCollapsed={isCollapsed}
-              onClick={() => setCurrentGoalId(goal.id)}
-            />
-          ))}
+          {goals
+            .filter((goal) => !goal.isArchived)
+            .map((goal) => (
+              <GoalTab
+                key={goal.id}
+                goal={goal}
+                isActive={currentGoalId === goal.id}
+                isCollapsed={isCollapsed}
+                onClick={() => setCurrentGoalId(goal.id)}
+              />
+            ))}
 
           {isCollapsed && (
             <Button
@@ -248,9 +272,17 @@ export function Sidebar() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem>Account Settings</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => filterTasks("archived")}>
-                View Archive
+              <DropdownMenuItem onClick={() => navigate("/profile")}>
+                Account Settings
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate("/archived-goals")}>
+                <Archive className="mr-2 h-4 w-4" />
+                Archived Goals
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate("/archived-tasks")}>
+                <Archive className="mr-2 h-4 w-4" />
+                Archived Tasks
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

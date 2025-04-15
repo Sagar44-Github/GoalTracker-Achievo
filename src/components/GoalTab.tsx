@@ -11,6 +11,8 @@ import {
   ChevronUp,
   Plus,
   Database,
+  MoreHorizontal,
+  Archive,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,6 +27,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
@@ -65,6 +68,7 @@ export function GoalTab({
     toggleGamificationView,
     addTask,
     refreshData,
+    archiveGoal,
   } = useApp();
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -204,6 +208,15 @@ export function GoalTab({
   // Calculate progress percentage
   const progressPercentage = goal.stats?.percentage || 0;
 
+  // Handle archive goal
+  const handleArchive = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent triggering the onClick of the parent
+
+    if (confirm(`Are you sure you want to archive the goal "${goal.title}"?`)) {
+      await archiveGoal(goal.id);
+    }
+  };
+
   return (
     <>
       {isCollapsed ? (
@@ -321,7 +334,7 @@ export function GoalTab({
                     className="h-6 w-6 opacity-0 group-hover:opacity-100 flex-shrink-0"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <MoreVertical size={14} />
+                    <MoreHorizontal size={14} />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
@@ -343,6 +356,10 @@ export function GoalTab({
                   >
                     <Trash2 size={14} className="mr-2" />
                     Delete Goal
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleArchive}>
+                    <Archive className="mr-2 h-4 w-4" />
+                    Archive Goal
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
