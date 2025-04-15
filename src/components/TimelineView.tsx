@@ -1,10 +1,12 @@
-import React, { useRef, useState, useEffect, useContext } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import {
   eachDayOfInterval,
   subDays,
   format,
   isToday,
   isWeekend,
+  isSameDay,
+  parseISO,
 } from "date-fns";
 import {
   ChevronLeft,
@@ -13,9 +15,9 @@ import {
   ChevronDown,
   MoreHorizontal,
 } from "lucide-react";
-import TimelineCard from "./TimelineCard";
-import { AppContext } from "../context/AppContext";
-import { Goal, HistoryEntry, Task } from "../lib/db";
+import { TimelineCard } from "./TimelineCard";
+import { useApp } from "@/context/AppContext";
+import { Goal, HistoryEntry, Task } from "@/lib/db";
 import { mockTimelineDb } from "../lib/mockTimelineData";
 
 interface TimelineProps {
@@ -23,7 +25,8 @@ interface TimelineProps {
 }
 
 const Timeline: React.FC<TimelineProps> = ({ initialDays = 30 }) => {
-  const { goals } = useContext(AppContext);
+  const appContext = useApp();
+  const goals = appContext?.goals || [];
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [days, setDays] = useState(initialDays);
   const [loading, setLoading] = useState(true);
@@ -95,8 +98,11 @@ const Timeline: React.FC<TimelineProps> = ({ initialDays = 30 }) => {
 
     // Count completed tasks on this day
     const completedTasks = timelineTasks.filter((task) => {
-      if (!task.completedAt) return false;
-      const completedDate = format(new Date(task.completedAt), "yyyy-MM-dd");
+      if (!task.completionTimestamp) return false;
+      const completedDate = format(
+        new Date(task.completionTimestamp),
+        "yyyy-MM-dd"
+      );
       return completedDate === dateStr;
     });
 
@@ -126,8 +132,11 @@ const Timeline: React.FC<TimelineProps> = ({ initialDays = 30 }) => {
     const dateStr = format(date, "yyyy-MM-dd");
 
     return timelineTasks.filter((task) => {
-      if (!task.completedAt) return false;
-      const completedDate = format(new Date(task.completedAt), "yyyy-MM-dd");
+      if (!task.completionTimestamp) return false;
+      const completedDate = format(
+        new Date(task.completionTimestamp),
+        "yyyy-MM-dd"
+      );
       return completedDate === dateStr;
     });
   };
@@ -138,8 +147,11 @@ const Timeline: React.FC<TimelineProps> = ({ initialDays = 30 }) => {
     const badges: string[] = [];
 
     const tasksCompleted = timelineTasks.filter((task) => {
-      if (!task.completedAt) return false;
-      const completedDate = format(new Date(task.completedAt), "yyyy-MM-dd");
+      if (!task.completionTimestamp) return false;
+      const completedDate = format(
+        new Date(task.completionTimestamp),
+        "yyyy-MM-dd"
+      );
       return completedDate === dateStr;
     }).length;
 
@@ -155,7 +167,7 @@ const Timeline: React.FC<TimelineProps> = ({ initialDays = 30 }) => {
     // Check for milestones in history
     const hasMilestone = timelineHistory.some((entry) => {
       const entryDate = format(new Date(entry.timestamp), "yyyy-MM-dd");
-      return entryDate === dateStr && entry.type === "milestone";
+      return entryDate === dateStr && entry.type === "add"; // Using "add" which is a valid type
     });
 
     if (hasMilestone) badges.push("milestone");
@@ -184,12 +196,14 @@ const Timeline: React.FC<TimelineProps> = ({ initialDays = 30 }) => {
             <button
               onClick={() => handleScroll("left")}
               className="p-1 rounded-l-md bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700"
+              title="Scroll left"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
             <button
               onClick={() => handleScroll("right")}
               className="p-1 rounded-r-md bg-gray-100 hover:bg-gray-200 dark:bg-slate-800 dark:hover:bg-slate-700"
+              title="Scroll right"
             >
               <ChevronRight className="h-5 w-5" />
             </button>
@@ -210,8 +224,18 @@ const Timeline: React.FC<TimelineProps> = ({ initialDays = 30 }) => {
           >
             {dateRange.map((date) => {
               const dayTasks = getTasksForDay(date);
-              const productivity = getProductivityScore(date);
+              const productivityScore = getProductivityScore(date);
+              // Convert numeric productivity score to priority string
+              let productivity: "low" | "medium" | "high" = "low";
+              if (productivityScore >= 7) {
+                productivity = "high";
+              } else if (productivityScore >= 4) {
+                productivity = "medium";
+              }
               const badges = getBadgesForDay(date);
+              const goalItems = goals.filter((g) =>
+                dayTasks.some((t) => t.goalId === g.id)
+              );
 
               return (
                 <div key={date.toISOString()} className="snap-center">
@@ -221,12 +245,7 @@ const Timeline: React.FC<TimelineProps> = ({ initialDays = 30 }) => {
                     taskCount={dayTasks.length}
                     productivity={productivity}
                     badges={badges}
-                    goals={goals}
-                    selected={
-                      selectedDate
-                        ? selectedDate.toDateString() === date.toDateString()
-                        : false
-                    }
+                    goals={goalItems}
                     onCardClick={() => setSelectedDate(date)}
                   />
                 </div>
@@ -244,7 +263,10 @@ const Timeline: React.FC<TimelineProps> = ({ initialDays = 30 }) => {
                 ? "Today"
                 : format(selectedDate, "EEEE, MMMM d, yyyy")}
             </h3>
-            <button className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800">
+            <button
+              className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800"
+              title="More options"
+            >
               <MoreHorizontal className="h-5 w-5" />
             </button>
           </div>

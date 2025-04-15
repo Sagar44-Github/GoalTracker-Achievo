@@ -15,6 +15,7 @@ import {
   Tag,
   BarChart2,
   Feather,
+  Calendar as CalendarIcon,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,13 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { TaskRepetitionHistory } from "./TaskRepetitionHistory";
 import { toast } from "@/hooks/use-toast";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { format, parseISO } from "date-fns";
 
 interface TaskItemProps {
   task: Task;
@@ -355,6 +363,22 @@ export function TaskItem({ task }: TaskItemProps) {
             : undefined
         }
       >
+        {/* Delete button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="flex-shrink-0 w-5 h-5 rounded-full hover:bg-destructive/10 transition-colors mr-1"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (window.confirm("Are you sure you want to delete this task?")) {
+              deleteTask(task.id);
+            }
+          }}
+          title="Delete task"
+        >
+          <Trash2 size={12} className="text-destructive" />
+        </Button>
+
         {/* Checkbox - Make larger in focus mode */}
         <div
           id={`task-checkbox-${task.id}`}
@@ -569,17 +593,39 @@ export function TaskItem({ task }: TaskItemProps) {
             </div>
             <div className="space-y-2">
               <Label htmlFor="due-date">Due Date</Label>
-              <Input
-                type="date"
-                id="due-date"
-                value={editedTask.dueDate || ""}
-                onChange={(e) =>
-                  setEditedTask({
-                    ...editedTask,
-                    dueDate: e.target.value || null,
-                  })
-                }
-              />
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal"
+                    id="due-date"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {editedTask.dueDate ? (
+                      format(parseISO(editedTask.dueDate), "PPP")
+                    ) : (
+                      <span>Pick a date</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={
+                      editedTask.dueDate
+                        ? parseISO(editedTask.dueDate)
+                        : undefined
+                    }
+                    onSelect={(date) => {
+                      setEditedTask({
+                        ...editedTask,
+                        dueDate: date ? format(date, "yyyy-MM-dd") : null,
+                      });
+                    }}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="space-y-2">
               <Label htmlFor="priority">Priority</Label>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useApp } from "@/context/AppContext";
 import { Button } from "@/components/ui/button";
 import { TaskItem } from "./TaskItem";
@@ -8,7 +8,7 @@ import {
   Mic,
   Network,
   Feather,
-  Calendar,
+  Calendar as CalendarIcon,
   List,
   Clock,
   X,
@@ -45,6 +45,13 @@ import { QuietTasksPanel } from "./QuietTasksPanel";
 import { Switch } from "@/components/ui/switch";
 import { TimelineJournalView } from "./TimelineJournalView";
 import { cn } from "@/lib/utils";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { format, parseISO } from "date-fns";
 
 // Before declaring it in global scope, check if it's already declared
 // Use a different name for the local interface
@@ -242,7 +249,7 @@ export function TaskList() {
     return goal?.isArchived === true;
   };
 
-  // Sort tasks: incomplete first, then by priority, then by due date, then by creation date
+  // Sort tasks: archived goals first, then today's tasks, then future tasks, then past tasks
   const sortedTasks = [...filteredTasks].sort((a, b) => {
     // First check if tasks are from archived goals - prioritize those
     const aFromArchivedGoal = isTaskFromArchivedGoal(a);
@@ -257,6 +264,59 @@ export function TaskList() {
       return a.completed ? 1 : -1;
     }
 
+    // Get current date (today) normalized to start of day
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayTime = today.getTime();
+
+    // Get dates for tasks
+    const aDate = a.dueDate ? new Date(a.dueDate) : null;
+    const bDate = b.dueDate ? new Date(b.dueDate) : null;
+
+    // Check if dates are today, in future, or in past
+    const aIsToday = aDate && aDate.getTime() === todayTime;
+    const bIsToday = bDate && bDate.getTime() === todayTime;
+    const aIsFuture = aDate && aDate.getTime() > todayTime;
+    const bIsFuture = bDate && bDate.getTime() > todayTime;
+    const aIsPast = aDate && aDate.getTime() < todayTime;
+    const bIsPast = bDate && bDate.getTime() < todayTime;
+
+    // Today's tasks come first
+    if (aIsToday && !bIsToday) return -1;
+    if (!aIsToday && bIsToday) return 1;
+
+    // Future tasks come before past tasks
+    if (aIsFuture && !bIsFuture && !bIsToday) return -1;
+    if (!aIsFuture && !aIsToday && bIsFuture) return 1;
+
+    // Past tasks appear in reverse chronological order (most recent first)
+    if (aIsPast && bIsPast) {
+      return bDate!.getTime() - aDate!.getTime();
+    }
+
+    // Future tasks appear in chronological order (nearest first)
+    if (aIsFuture && bIsFuture) {
+      return aDate!.getTime() - bDate!.getTime();
+    }
+
+    // Today's tasks maintained order
+    if (aIsToday && bIsToday) {
+      // For tasks on the same day, sort by priority
+      const priorityOrder = { high: 3, medium: 2, low: 1 };
+      const aPriority =
+        priorityOrder[a.priority as keyof typeof priorityOrder] || 0;
+      const bPriority =
+        priorityOrder[b.priority as keyof typeof priorityOrder] || 0;
+
+      if (aPriority !== bPriority) {
+        return bPriority - aPriority; // Higher priority first
+      }
+    }
+
+    // Tasks with dates before tasks without dates
+    if (aDate && !bDate) return -1;
+    if (!aDate && bDate) return 1;
+
     // Then by priority
     const priorityOrder = { high: 3, medium: 2, low: 1 };
     const aPriority =
@@ -266,15 +326,6 @@ export function TaskList() {
 
     if (aPriority !== bPriority) {
       return bPriority - aPriority; // Higher priority first
-    }
-
-    // Then by due date (if available)
-    if (a.dueDate && b.dueDate) {
-      return a.dueDate.localeCompare(b.dueDate);
-    } else if (a.dueDate) {
-      return -1;
-    } else if (b.dueDate) {
-      return 1;
     }
 
     // Finally by creation date (newest first)
@@ -491,14 +542,37 @@ export function TaskList() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="dueDate">Due Date</Label>
-                <Input
-                  id="dueDate"
-                  type="date"
-                  value={newTask.dueDate || ""}
-                  onChange={(e) =>
-                    setNewTask({ ...newTask, dueDate: e.target.value })
-                  }
-                />
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start text-left font-normal"
+                      id="dueDate"
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {newTask.dueDate ? (
+                        format(parseISO(newTask.dueDate), "PPP")
+                      ) : (
+                        <span>Pick a date</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={
+                        newTask.dueDate ? parseISO(newTask.dueDate) : undefined
+                      }
+                      onSelect={(date) => {
+                        setNewTask({
+                          ...newTask,
+                          dueDate: date ? format(date, "yyyy-MM-dd") : null,
+                        });
+                      }}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
 
               <div className="space-y-2">
