@@ -28,6 +28,10 @@ export interface AchievoDB extends DBSchema {
     value: DailyTheme;
     indexes: { "by-day": string };
   };
+  userProfiles: {
+    key: string; // userId
+    value: UserProfile;
+  };
 }
 
 // Define the data types
@@ -95,6 +99,32 @@ export interface DailyTheme {
   tags: string[]; // Tags that are associated with this theme
 }
 
+// Define the user profile data type
+export interface UserProfile {
+  userId: string;
+  displayName?: string;
+  customAvatar?: string; // URL or data URI for custom avatar
+  avatarIcon?: string; // Icon name or identifier
+  dateOfBirth?: string;
+  bio?: string;
+  location?: string;
+  hobbies?: string[];
+  socialLinks?: {
+    twitter?: string;
+    github?: string;
+    linkedin?: string;
+    website?: string;
+    [key: string]: string | undefined;
+  };
+  preferences?: {
+    theme?: string;
+    notificationsEnabled?: boolean;
+    [key: string]: any;
+  };
+  createdAt: number;
+  updatedAt: number;
+}
+
 // Database singleton
 let dbPromise: Promise<IDBPDatabase<AchievoDB>> | null = null;
 
@@ -147,6 +177,12 @@ const initDB = async () => {
             });
             dailyThemesStore.createIndex("by-day", "day");
           }
+
+          if (!db.objectStoreNames.contains("userProfiles")) {
+            console.log("Creating user profiles store");
+            db.createObjectStore("userProfiles", { keyPath: "userId" });
+          }
+
           console.log("Database schema upgrade complete");
         },
         blocked() {
@@ -1154,6 +1190,36 @@ export const db = {
     } catch (error) {
       console.error("Direct task update failed:", error);
       return false;
+    }
+  },
+
+  // User profile operations
+  async getUserProfile(userId: string): Promise<UserProfile | null> {
+    try {
+      const db = await initDB();
+      return db.get("userProfiles", userId);
+    } catch (error) {
+      console.error("Error in getUserProfile:", error);
+      return null;
+    }
+  },
+
+  async createOrUpdateUserProfile(profile: UserProfile): Promise<void> {
+    try {
+      const db = await initDB();
+      profile.updatedAt = Date.now();
+      await db.put("userProfiles", profile);
+    } catch (error) {
+      console.error("Error in createOrUpdateUserProfile:", error);
+    }
+  },
+
+  async deleteUserProfile(userId: string): Promise<void> {
+    try {
+      const db = await initDB();
+      await db.delete("userProfiles", userId);
+    } catch (error) {
+      console.error("Error in deleteUserProfile:", error);
     }
   },
 };

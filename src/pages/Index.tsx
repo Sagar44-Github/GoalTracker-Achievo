@@ -25,6 +25,9 @@ import { Button } from "@/components/ui/button";
 import { addPrebuiltData, addInactivityDemoData } from "@/lib/prebuiltData";
 import { toast } from "@/hooks/use-toast";
 
+// Add CSS for sidebar-related layout adjustments
+import "../styles/sidebar-layout.css";
+
 // Function to reset the database in case of corruption
 const resetDatabase = async (): Promise<void> => {
   try {
@@ -67,6 +70,31 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState<"tasks" | "dashboard">("tasks");
   const [isMobile, setIsMobile] = useState(false);
   const [showEmergencyReset, setShowEmergencyReset] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    const savedState = localStorage.getItem("sidebar-collapsed");
+    return savedState ? JSON.parse(savedState) : false;
+  });
+
+  // Monitor sidebar collapsed state
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const savedState = localStorage.getItem("sidebar-collapsed");
+      if (savedState) {
+        setSidebarCollapsed(JSON.parse(savedState));
+      }
+    };
+
+    // Listen for changes to localStorage
+    window.addEventListener("storage", handleStorageChange);
+
+    // Also set up a periodic check for changes
+    const interval = setInterval(handleStorageChange, 500);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      clearInterval(interval);
+    };
+  }, []);
 
   // Get context safely
   const appContext = useApp();
@@ -138,10 +166,10 @@ const Index = () => {
   // Show gamification view if selected
   if (showGamificationView && !isFocusMode) {
     return (
-      <div className="h-screen flex overflow-hidden">
+      <div className="h-screen flex overflow-hidden app-container">
         {/* Only show sidebar when not in focus mode */}
         <Sidebar />
-        <div className="flex-1 overflow-auto">
+        <div className="flex-1 overflow-auto main-content">
           <div className="p-4 flex flex-wrap gap-2 justify-end">
             <Button
               variant="outline"
@@ -191,14 +219,15 @@ const Index = () => {
   return (
     <div
       className={cn(
-        "h-screen flex overflow-hidden transition-all duration-300",
-        isFocusMode && "focus-mode-container"
+        "h-screen flex overflow-hidden app-container transition-all duration-200",
+        isFocusMode && "focus-mode-container",
+        sidebarCollapsed && "sidebar-collapsed"
       )}
     >
       {/* Only show sidebar when not in focus mode */}
       {!isFocusMode && <Sidebar />}
 
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden main-content">
         {!isFocusMode && (
           <div className="p-2 flex flex-wrap gap-2 justify-end">
             <div className="flex flex-wrap gap-2">
@@ -253,81 +282,57 @@ const Index = () => {
           </div>
         )}
 
-        <Tabs
-          defaultValue="tasks"
-          value={activeTab}
-          onValueChange={(value) =>
-            setActiveTab(value as "tasks" | "dashboard")
-          }
-          className="flex-1 flex flex-col overflow-hidden"
-        >
-          {/* Only show tabs when not in focus mode */}
-          {!isFocusMode ? (
-            <div className="border-b px-4 py-2 tabs-header flex-shrink-0">
-              <TabsList className="w-full max-w-md mx-auto grid grid-cols-2">
-                <TabsTrigger
-                  value="tasks"
-                  className="flex items-center justify-center gap-1 sm:gap-2"
-                >
-                  <ListTodo className="h-4 w-4 sm:h-5 sm:w-5" />
-                  <span className="text-xs sm:text-sm">Tasks</span>
-                </TabsTrigger>
-                <TabsTrigger
-                  value="dashboard"
-                  className="flex items-center justify-center gap-1 sm:gap-2"
-                >
-                  <BarChart3 className="h-4 w-4 sm:h-5 sm:w-5" />
-                  <span className="text-xs sm:text-sm">Dashboard</span>
-                </TabsTrigger>
-              </TabsList>
-            </div>
-          ) : null}
-
-          <TabsContent
-            value="tasks"
-            className="flex-1 overflow-hidden m-0 data-[state=active]:flex-1"
-          >
-            <TaskList />
-          </TabsContent>
-
-          <TabsContent
-            value="dashboard"
-            className="flex-1 overflow-auto m-0 data-[state=active]:flex-1"
-          >
-            <div className="flex-1 overflow-auto relative">
-              <div className="p-2 border-b flex justify-end">
-                <Tabs defaultValue="dashboard" className="w-auto">
+        {isFocusMode ? (
+          <FocusMode />
+        ) : (
+          <div className="flex-1 p-2 overflow-auto">
+            {isMobile ? (
+              // Mobile view - simplify with just Task List
+              <div className="h-full">
+                <TaskList />
+              </div>
+            ) : (
+              // Desktop view - Tabs with Task & Dashboard
+              <Tabs
+                defaultValue="tasks"
+                value={activeTab}
+                onValueChange={(value) => setActiveTab(value as any)}
+                className="h-full flex flex-col"
+              >
+                <div className="flex justify-between items-center mb-2">
                   <TabsList>
+                    <TabsTrigger value="tasks" className="flex items-center">
+                      <ListTodo className="mr-2 h-4 w-4" />
+                      Tasks
+                    </TabsTrigger>
                     <TabsTrigger
                       value="dashboard"
-                      className="flex items-center gap-1"
+                      className="flex items-center"
                     >
-                      <BarChart3 className="h-4 w-4" />
-                      <span>Dashboard</span>
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="timeline"
-                      className="flex items-center gap-1"
-                    >
-                      <Clock className="h-4 w-4" />
-                      <span>Timeline</span>
+                      <BarChart3 className="mr-2 h-4 w-4" />
+                      Dashboard
                     </TabsTrigger>
                   </TabsList>
-                  <TabsContent value="dashboard">
-                    <Dashboard />
-                  </TabsContent>
-                  <TabsContent value="timeline">
-                    <TimelineJournalView />
-                  </TabsContent>
-                </Tabs>
-              </div>
-            </div>
-          </TabsContent>
-        </Tabs>
-      </div>
+                </div>
 
-      {/* Focus mode overlay */}
-      <FocusMode />
+                <TabsContent
+                  value="tasks"
+                  className="flex-1 overflow-hidden space-y-1 mt-0"
+                >
+                  <TaskList />
+                </TabsContent>
+
+                <TabsContent
+                  value="dashboard"
+                  className="flex-1 overflow-auto space-y-8 mt-0"
+                >
+                  <Dashboard />
+                </TabsContent>
+              </Tabs>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

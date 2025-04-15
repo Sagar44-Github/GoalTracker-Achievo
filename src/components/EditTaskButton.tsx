@@ -1,18 +1,5 @@
 import { useState } from "react";
-import { Task, db } from "@/lib/db";
-import { useApp } from "@/context/AppContext";
-import { formatDate } from "@/lib/taskUtils";
-import {
-  CheckCircle,
-  Circle,
-  Edit,
-  AlertCircle,
-  CalendarDays,
-  Calendar as CalendarIcon,
-  Trash2,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
+import { Edit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -20,16 +7,10 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -37,15 +18,20 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { format, parseISO } from "date-fns";
+import { CalendarIcon } from "lucide-react";
+import { db, Task } from "@/lib/db";
 import { toast } from "@/hooks/use-toast";
-import { SimpleEditModal } from "./SimpleEditModal";
+import { useApp } from "@/context/AppContext";
 
-interface GoalTaskItemProps {
-  task: Task;
-}
-
-// Replace the updateTaskDirectly function with a simpler version that uses db.directTaskUpdate
+// Direct update function
 const updateTaskDirectly = async (task: Task): Promise<boolean> => {
   try {
     return await db.directTaskUpdate(task);
@@ -55,66 +41,40 @@ const updateTaskDirectly = async (task: Task): Promise<boolean> => {
   }
 };
 
-export function GoalTaskItem({ task }: GoalTaskItemProps) {
-  // Add default values for task if it's undefined
-  const safeTask: Task = task || {
-    id: "",
-    title: "",
-    completed: false,
-    createdAt: Date.now(),
-    priority: "medium",
-    tags: [],
-    isArchived: false,
-    dueDate: null,
-    repeatPattern: null,
-    completionTimestamp: null,
-    goalId: null,
-  };
+interface EditTaskButtonProps {
+  task: Task;
+  className?: string;
+}
+
+export function EditTaskButton({ task, className }: EditTaskButtonProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [editedTask, setEditedTask] = useState<Task>(task);
 
   const appContext = useApp();
-  // Handle possible undefined context
-  const completeTask = appContext?.completeTask || (async () => {});
   const updateTask = appContext?.updateTask || (async () => "");
-  const deleteTask = appContext?.deleteTask || (async () => {});
   const goals = appContext?.goals || [];
+  const refreshData = appContext?.refreshData || (async () => {});
 
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [editedTask, setEditedTask] = useState<Task>({ ...safeTask });
-
-  // Format due date
-  const dueDateText = formatDate(safeTask.dueDate);
-
-  // Determine priority styling
-  const getPriorityColor = () => {
-    switch (safeTask?.priority) {
-      case "high":
-        return "text-destructive";
-      case "medium":
-        return "text-orange-500 dark:text-orange-400";
-      case "low":
-        return "text-blue-500 dark:text-blue-400";
-      default:
-        return "";
-    }
-  };
-
-  const handleComplete = (e: React.MouseEvent) => {
+  // Handle opening the dialog
+  const handleOpenDialog = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (safeTask?.id) {
-      completeTask(safeTask.id);
-    }
+    e.preventDefault();
+
+    // Make a fresh copy of the task
+    setEditedTask({
+      ...task,
+      dependencies: task.dependencies || [],
+      isQuiet: task.isQuiet || false,
+      description: task.description || "",
+      tags: task.tags || [],
+    });
+
+    // Open the dialog
+    setIsOpen(true);
   };
 
-  const handleEdit = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setEditedTask({ ...safeTask });
-    setIsEditDialogOpen(true);
-    console.log(
-      `GoalTaskItem handleEdit: Set isEditDialogOpen to true for task ${safeTask.id}`
-    );
-  };
-
-  const handleSaveEdit = async () => {
+  // Handle saving changes
+  const handleSaveTask = async () => {
     try {
       // Validate required fields
       if (!editedTask.title.trim()) {
@@ -135,8 +95,6 @@ export function GoalTaskItem({ task }: GoalTaskItemProps) {
       // Ensure all properties are properly set
       const taskToSave: Task = {
         ...editedTask,
-        // Ensure required properties have proper values
-        id: editedTask.id,
         title: editedTask.title.trim(),
         dueDate: editedTask.dueDate,
         createdAt: editedTask.createdAt,
@@ -146,16 +104,17 @@ export function GoalTaskItem({ task }: GoalTaskItemProps) {
         isArchived: editedTask.isArchived || false,
         repeatPattern: editedTask.repeatPattern || null,
         completionTimestamp: editedTask.completionTimestamp || null,
+        dependencies: editedTask.dependencies || [],
         tags: editedTask.tags || [],
       };
 
-      // Try direct database update first - this is more reliable
+      // Try direct database update first
       try {
         const success = await updateTaskDirectly(taskToSave);
 
         if (success) {
           // Close dialog first for better UX
-          setIsEditDialogOpen(false);
+          setIsOpen(false);
 
           // Success message
           toast({
@@ -164,10 +123,8 @@ export function GoalTaskItem({ task }: GoalTaskItemProps) {
           });
 
           // Refresh data if available
-          if (appContext?.refreshData) {
-            setTimeout(() => {
-              appContext.refreshData();
-            }, 100);
+          if (refreshData) {
+            setTimeout(() => refreshData(), 100);
           }
         }
       } catch (directError) {
@@ -176,7 +133,7 @@ export function GoalTaskItem({ task }: GoalTaskItemProps) {
         // Fall back to context update method
         try {
           await updateTask(taskToSave);
-          setIsEditDialogOpen(false);
+          setIsOpen(false);
 
           toast({
             title: "Task updated",
@@ -206,133 +163,41 @@ export function GoalTaskItem({ task }: GoalTaskItemProps) {
       .split(",")
       .map((tag) => tag.trim())
       .filter(Boolean);
-    setEditedTask({ ...editedTask, tags: tags || [] });
+    setEditedTask({ ...editedTask, tags });
   };
-
-  // Add console logging
-  console.log("GoalTaskItem rendering, isEditDialogOpen:", isEditDialogOpen);
-
-  // Verify state just before render
-  console.log(
-    `GoalTaskItem rendering with isEditDialogOpen = ${isEditDialogOpen}`
-  );
 
   return (
     <>
-      <div
-        className={cn(
-          "flex items-center p-2 rounded-md border border-border hover:bg-muted/50",
-          safeTask.completed && "opacity-60"
-        )}
+      {/* Edit button */}
+      <Button
+        variant="ghost"
+        size="icon"
+        className={`flex-shrink-0 w-5 h-5 rounded-full hover:bg-muted/50 transition-colors ${
+          className || ""
+        }`}
+        onClick={handleOpenDialog}
+        title="Edit task"
       >
-        {/* Delete button */}
-        <div className="flex flex-col items-center mr-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="flex-shrink-0 w-5 h-5 rounded-full hover:bg-destructive/10 transition-colors"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (
-                window.confirm("Are you sure you want to delete this task?")
-              ) {
-                deleteTask(safeTask.id);
-              }
-            }}
-            title="Delete task"
-          >
-            <Trash2 size={12} className="text-destructive" />
-          </Button>
+        <Edit size={12} className="text-muted-foreground" />
+      </Button>
 
-          {/* Edit button - directly below delete button */}
-          <SimpleEditModal task={safeTask} className="mt-1" />
-        </div>
-
-        {/* Checkbox */}
-        <button
-          className={cn(
-            "flex-shrink-0 w-4 h-4 rounded-full border-2 border-muted-foreground flex items-center justify-center mr-2 relative -mt-0.5",
-            safeTask.completed && "bg-achievo-purple border-achievo-purple"
-          )}
-          onClick={handleComplete}
-          title={safeTask.completed ? "Mark as incomplete" : "Mark as complete"}
-          aria-label={
-            safeTask.completed ? "Mark as incomplete" : "Mark as complete"
-          }
-        >
-          {safeTask.completed && (
-            <CheckCircle
-              size={14}
-              className="text-background"
-              strokeWidth={2.5}
-            />
-          )}
-        </button>
-
-        {/* Task Content */}
-        <div className="flex-1 min-w-0">
-          <p
-            className={cn(
-              "text-sm font-medium",
-              safeTask.completed && "line-through text-muted-foreground"
-            )}
-          >
-            {safeTask.title}
-          </p>
-
-          <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-            {/* Due date */}
-            {safeTask.dueDate && (
-              <div className="flex items-center">
-                <CalendarDays size={12} className="mr-1" />
-                {dueDateText}
-              </div>
-            )}
-
-            {/* Priority */}
-            <div className={cn("flex items-center", getPriorityColor())}>
-              <AlertCircle size={12} className="mr-1" />
-              {safeTask.priority}
-            </div>
-          </div>
-
-          {/* Tags */}
-          {safeTask.tags && safeTask.tags.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1 mt-1">
-              {safeTask.tags.map((tag) => (
-                <Badge
-                  key={tag}
-                  variant="outline"
-                  className="px-2 py-0 text-xs"
-                >
-                  #{tag}
-                </Badge>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Edit Task Dialog - Control visibility solely with the 'open' prop */}
-      <Dialog
-        key={`edit-dialog-${safeTask.id}`}
-        open={isEditDialogOpen}
-        // onOpenChange is temporarily removed for debugging
-      >
-        <DialogContent className="max-w-md task-edit-dialog">
+      {/* Dialog will always be in the DOM but only visible when isOpen=true */}
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Edit Task</DialogTitle>
             <DialogDescription>
               Make changes to your task here. Click save when you're done.
             </DialogDescription>
           </DialogHeader>
+
           <div className="space-y-4 mt-2">
             <div className="space-y-2">
-              <Label htmlFor="title">
+              <Label htmlFor="edit-title">
                 Title <span className="text-destructive">*</span>
               </Label>
               <Input
-                id="title"
+                id="edit-title"
                 value={editedTask.title}
                 onChange={(e) =>
                   setEditedTask({ ...editedTask, title: e.target.value })
@@ -345,14 +210,15 @@ export function GoalTaskItem({ task }: GoalTaskItemProps) {
                 <p className="text-xs text-destructive">Title is required</p>
               )}
             </div>
+
             <div className="space-y-2">
-              <Label htmlFor="due-date">Due Date</Label>
+              <Label htmlFor="edit-due-date">Due Date</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
                     className="w-full justify-start text-left font-normal"
-                    id="due-date"
+                    id="edit-due-date"
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
                     {editedTask.dueDate ? (
@@ -381,8 +247,9 @@ export function GoalTaskItem({ task }: GoalTaskItemProps) {
                 </PopoverContent>
               </Popover>
             </div>
+
             <div className="space-y-2">
-              <Label htmlFor="priority">Priority</Label>
+              <Label htmlFor="edit-priority">Priority</Label>
               <Select
                 value={editedTask.priority}
                 onValueChange={(value) =>
@@ -392,7 +259,7 @@ export function GoalTaskItem({ task }: GoalTaskItemProps) {
                   })
                 }
               >
-                <SelectTrigger id="priority">
+                <SelectTrigger id="edit-priority">
                   <SelectValue placeholder="Select priority" />
                 </SelectTrigger>
                 <SelectContent>
@@ -402,8 +269,9 @@ export function GoalTaskItem({ task }: GoalTaskItemProps) {
                 </SelectContent>
               </Select>
             </div>
+
             <div className="space-y-2">
-              <Label htmlFor="goal">Goal</Label>
+              <Label htmlFor="edit-goal">Goal</Label>
               <Select
                 value={editedTask.goalId || ""}
                 onValueChange={(goalId) => {
@@ -414,7 +282,7 @@ export function GoalTaskItem({ task }: GoalTaskItemProps) {
                   });
                 }}
               >
-                <SelectTrigger id="goal">
+                <SelectTrigger id="edit-goal">
                   <SelectValue placeholder="No goal" />
                 </SelectTrigger>
                 <SelectContent>
@@ -427,32 +295,34 @@ export function GoalTaskItem({ task }: GoalTaskItemProps) {
                 </SelectContent>
               </Select>
             </div>
+
             <div className="space-y-2">
-              <Label htmlFor="tags">Tags (comma-separated)</Label>
+              <Label htmlFor="edit-tags">Tags (comma-separated)</Label>
               <Textarea
-                id="tags"
+                id="edit-tags"
                 value={editedTask.tags.join(", ")}
                 onChange={handleTagChange}
                 placeholder="work, important, project"
               />
             </div>
-            <div className="flex gap-2 pt-2">
-              <Button
-                variant="outline"
-                onClick={() => setIsEditDialogOpen(false)}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSaveEdit}
-                className="flex-1"
-                disabled={!editedTask.title.trim()}
-              >
-                Save Changes
-              </Button>
-            </div>
           </div>
+
+          <DialogFooter className="flex gap-2 pt-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsOpen(false)}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveTask}
+              className="flex-1"
+              disabled={!editedTask.title.trim()}
+            >
+              Save Changes
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

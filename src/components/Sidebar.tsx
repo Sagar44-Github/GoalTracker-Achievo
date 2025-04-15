@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useApp } from "@/context/AppContext";
 import { cn } from "@/lib/utils";
 import {
@@ -15,6 +15,7 @@ import {
   Trophy,
   Palette,
   Archive,
+  GripVertical,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,6 +54,8 @@ export function Sidebar() {
 
   const navigate = useNavigate();
   const location = useLocation();
+  const resizeHandleRef = useRef<HTMLDivElement>(null);
+  const sidebarRef = useRef<HTMLDivElement>(null);
 
   // Check if currently viewing archived tasks
   const isViewingArchived = location.pathname === "/archived-tasks";
@@ -62,9 +65,81 @@ export function Sidebar() {
     return savedState ? JSON.parse(savedState) : false;
   });
 
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const savedWidth = localStorage.getItem("sidebar-width");
+    return savedWidth ? parseInt(savedWidth) : 256; // Default width of 256px (w-64)
+  });
+
+  const [isResizing, setIsResizing] = useState(false);
   const [newGoalTitle, setNewGoalTitle] = useState("");
   const [isAddGoalDialogOpen, setIsAddGoalDialogOpen] = useState(false);
   const [showThemeSettings, setShowThemeSettings] = useState(false);
+
+  // Constants for min and max width
+  const MIN_SIDEBAR_WIDTH = 180;
+  const MAX_SIDEBAR_WIDTH = 400;
+  const COLLAPSED_WIDTH = 64;
+
+  useEffect(() => {
+    // Save collapsed state to localStorage
+    localStorage.setItem("sidebar-collapsed", JSON.stringify(isCollapsed));
+  }, [isCollapsed]);
+
+  useEffect(() => {
+    // Save sidebar width to localStorage (only if not collapsed)
+    if (!isCollapsed) {
+      localStorage.setItem("sidebar-width", sidebarWidth.toString());
+    }
+  }, [sidebarWidth, isCollapsed]);
+
+  useEffect(() => {
+    const handleResize = (e: MouseEvent) => {
+      if (!isResizing || isCollapsed) return;
+
+      e.preventDefault();
+
+      // Calculate new width based on mouse position
+      if (sidebarRef.current) {
+        const newWidth = e.clientX;
+
+        // Apply constraints
+        const constrainedWidth = Math.max(
+          MIN_SIDEBAR_WIDTH,
+          Math.min(MAX_SIDEBAR_WIDTH, newWidth)
+        );
+
+        setSidebarWidth(constrainedWidth);
+
+        // Update the actual DOM element width immediately for smooth resizing
+        sidebarRef.current.style.width = `${constrainedWidth}px`;
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      document.body.style.cursor = "default";
+      document.body.style.userSelect = "auto";
+    };
+
+    if (isResizing) {
+      document.addEventListener("mousemove", handleResize);
+      document.addEventListener("mouseup", handleMouseUp);
+      // Change cursor style during resize and prevent text selection
+      document.body.style.cursor = "ew-resize";
+      document.body.style.userSelect = "none";
+    }
+
+    return () => {
+      document.removeEventListener("mousemove", handleResize);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [isResizing, isCollapsed]);
+
+  const startResizing = () => {
+    if (!isCollapsed) {
+      setIsResizing(true);
+    }
+  };
 
   const handleAddGoal = async () => {
     if (newGoalTitle.trim()) {
@@ -81,24 +156,32 @@ export function Sidebar() {
     }
   };
 
+  const handleToggleCollapse = () => {
+    setIsCollapsed(!isCollapsed);
+  };
+
   return (
     <div
+      ref={sidebarRef}
       className={cn(
-        "h-screen flex flex-col border-r bg-sidebar transition-all duration-300 relative",
-        isCollapsed ? "w-16" : "w-64"
+        "h-screen flex flex-col border-r bg-sidebar transition-all duration-200 relative",
+        isCollapsed ? "sidebar-collapsed" : "sidebar-expanded"
       )}
+      style={{ width: isCollapsed ? COLLAPSED_WIDTH : sidebarWidth }}
     >
       {/* Sidebar Header */}
       <div className="flex items-center justify-between p-4 border-b">
         {!isCollapsed && (
-          <h1 className="text-xl font-bold text-sidebar-foreground">Achievo</h1>
+          <h1 className="text-xl font-bold text-sidebar-foreground truncate">
+            Achievo
+          </h1>
         )}
 
         <Button
           variant="ghost"
           size="icon"
           className="ml-auto"
-          onClick={() => setIsCollapsed(!isCollapsed)}
+          onClick={handleToggleCollapse}
         >
           {isCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
         </Button>
@@ -121,7 +204,7 @@ export function Sidebar() {
           }}
         >
           <ListTodo size={18} className="mr-2" />
-          {!isCollapsed && <span>All Tasks</span>}
+          {!isCollapsed && <span className="truncate">All Tasks</span>}
         </Button>
 
         <Button
@@ -133,7 +216,7 @@ export function Sidebar() {
           }}
         >
           <CalendarDays size={18} className="mr-2" />
-          {!isCollapsed && <span>Today</span>}
+          {!isCollapsed && <span className="truncate">Today</span>}
         </Button>
 
         <Button
@@ -145,7 +228,7 @@ export function Sidebar() {
           }}
         >
           <CheckCircle size={18} className="mr-2" />
-          {!isCollapsed && <span>Completed</span>}
+          {!isCollapsed && <span className="truncate">Completed</span>}
         </Button>
 
         <Button
@@ -158,7 +241,7 @@ export function Sidebar() {
           onClick={() => navigate("/archived-goals")}
         >
           <Archive size={18} className="mr-2" />
-          {!isCollapsed && <span>Archived Goals</span>}
+          {!isCollapsed && <span className="truncate">Archived Goals</span>}
         </Button>
 
         <Button
@@ -171,7 +254,7 @@ export function Sidebar() {
           onClick={() => toggleGamificationView(true)}
         >
           <Trophy size={18} className="mr-2" />
-          {!isCollapsed && <span>Achievements</span>}
+          {!isCollapsed && <span className="truncate">Achievements</span>}
         </Button>
 
         <Button
@@ -184,7 +267,7 @@ export function Sidebar() {
           onClick={() => setShowThemeSettings(true)}
         >
           <Palette size={18} className="mr-2" />
-          {!isCollapsed && <span>Daily Themes</span>}
+          {!isCollapsed && <span className="truncate">Daily Themes</span>}
           {isDailyThemeModeEnabled && currentDayTheme && (
             <div
               className="absolute top-1 right-1 w-2 h-2 rounded-full"
@@ -301,6 +384,20 @@ export function Sidebar() {
           <DailyThemeSettings />
         </DialogContent>
       </Dialog>
+
+      {/* Resize handle */}
+      {!isCollapsed && (
+        <div
+          ref={resizeHandleRef}
+          className="absolute top-0 right-0 w-1 h-full cursor-ew-resize bg-transparent hover:bg-gray-300 dark:hover:bg-gray-700 opacity-0 hover:opacity-100 transition-opacity"
+          onMouseDown={startResizing}
+          style={{ touchAction: "none" }}
+        >
+          <div className="absolute top-1/2 right-0 -translate-y-1/2 p-1 rounded-full hover:bg-gray-200 dark:hover:bg-gray-800">
+            <GripVertical size={16} className="opacity-70" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

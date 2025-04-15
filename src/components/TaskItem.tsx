@@ -53,6 +53,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { format, parseISO } from "date-fns";
+import { SimpleEditModal } from "./SimpleEditModal";
 
 interface TaskItemProps {
   task: Task;
@@ -197,6 +198,9 @@ export function TaskItem({ task }: TaskItemProps) {
     });
 
     setIsEditDialogOpen(true);
+    console.log(
+      `TaskItem handleEdit: Set isEditDialogOpen to true for task ${task.id}`
+    );
     console.log("Edit dialog should now be open");
   };
 
@@ -340,12 +344,18 @@ export function TaskItem({ task }: TaskItemProps) {
     }
   };
 
+  // Add console logging
+  console.log("TaskItem rendering, isEditDialogOpen:", isEditDialogOpen);
+
+  // Verify state just before render
+  console.log(`TaskItem rendering with isEditDialogOpen = ${isEditDialogOpen}`);
+
   return (
     <>
       <div
         id={`task-${task.id}`}
         className={cn(
-          "flex items-start gap-2 task-item p-2 rounded-md",
+          "flex items-center gap-2 task-item p-2 rounded-md",
           task.completed && "opacity-60",
           matchesCurrentTheme && isDailyThemeModeEnabled && "theme-task",
           isFromArchivedGoal && "bg-muted border-l-2 border-yellow-400"
@@ -364,42 +374,45 @@ export function TaskItem({ task }: TaskItemProps) {
         }
       >
         {/* Delete button */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="flex-shrink-0 w-5 h-5 rounded-full hover:bg-destructive/10 transition-colors mr-1"
-          onClick={(e) => {
-            e.stopPropagation();
-            if (window.confirm("Are you sure you want to delete this task?")) {
-              deleteTask(task.id);
-            }
-          }}
-          title="Delete task"
-        >
-          <Trash2 size={12} className="text-destructive" />
-        </Button>
+        <div className="flex flex-col items-center mr-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="flex-shrink-0 w-5 h-5 rounded-full hover:bg-destructive/10 transition-colors"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (
+                window.confirm("Are you sure you want to delete this task?")
+              ) {
+                deleteTask(task.id);
+              }
+            }}
+            title="Delete task"
+          >
+            <Trash2 size={12} className="text-destructive" />
+          </Button>
+
+          {/* Edit button - directly below delete button */}
+          <SimpleEditModal task={task} className="mt-1" />
+        </div>
 
         {/* Checkbox - Make larger in focus mode */}
         <div
           id={`task-checkbox-${task.id}`}
           className={cn(
-            "flex-shrink-0 w-5 h-5 rounded-full border-2 border-muted-foreground flex items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors",
-            isFocusMode && "w-6 h-6",
+            "flex-shrink-0 w-4 h-4 rounded-full border-2 border-muted-foreground flex items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors relative -mt-9",
+            isFocusMode && "w-5 h-5",
             task.completed && "bg-achievo-purple border-achievo-purple",
             processing && "opacity-50"
           )}
           onClick={handleComplete}
           title={task.completed ? "Mark as incomplete" : "Mark as complete"}
         >
-          {task.completed ? (
+          {task.completed && (
             <CheckCircle
-              size={isFocusMode ? 18 : 14}
+              size={isFocusMode ? 16 : 14}
               className="text-background"
-            />
-          ) : (
-            <Circle
-              size={isFocusMode ? 18 : 14}
-              className="text-muted-foreground"
+              strokeWidth={2.5}
             />
           )}
         </div>
@@ -548,22 +561,11 @@ export function TaskItem({ task }: TaskItemProps) {
         <TaskRepetitionHistory task={task} />
       )}
 
-      {/* Edit Task Dialog */}
+      {/* Edit Task Dialog - Control visibility solely with the 'open' prop */}
       <Dialog
+        key={`edit-dialog-${task.id}`}
         open={isEditDialogOpen}
-        onOpenChange={(open) => {
-          // If closing dialog, check if there are unsaved changes
-          if (!open && JSON.stringify(task) !== JSON.stringify(editedTask)) {
-            // Check if this is intentional
-            const confirmed = window.confirm(
-              "You have unsaved changes. Are you sure you want to close?"
-            );
-            if (!confirmed) {
-              return;
-            }
-          }
-          setIsEditDialogOpen(open);
-        }}
+        // onOpenChange is temporarily removed for debugging
       >
         <DialogContent className="max-w-md task-edit-dialog">
           <DialogHeader>
