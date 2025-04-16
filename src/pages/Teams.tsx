@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { Team, TeamMember } from "@/lib/db";
 import { db } from "@/lib/db";
+import { addSampleTeam } from "@/lib/prebuiltData";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,7 +18,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/hooks/use-toast";
-import { Users, Plus, UserPlus, Loader2 } from "lucide-react";
+import { Users, Plus, UserPlus, Loader2, UserPlus2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 export default function Teams() {
@@ -192,6 +193,61 @@ export default function Teams() {
     navigate(`/teams/${teamId}`);
   };
 
+  // Add sample team for demonstration
+  const handleAddSampleTeam = async () => {
+    if (!currentUser) {
+      toast({
+        title: "Error",
+        description: "You must be logged in to add a sample team.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSubmitting(true);
+    toast({
+      title: "Creating Sample Team",
+      description: "Please wait while we set up your sample team...",
+    });
+
+    try {
+      // Call the addSampleTeam function with the current user's info
+      await addSampleTeam(
+        currentUser.uid,
+        currentUser.displayName || currentUser.email || "Captain"
+      );
+
+      toast({
+        title: "Success",
+        description:
+          "A sample team with members and tasks has been created for you!",
+      });
+
+      // Refresh teams
+      const userTeams = await db.getTeamsForUser(currentUser.uid);
+      setTeams(userTeams);
+
+      // Refresh team members for the newly created team
+      const membersObj: Record<string, TeamMember[]> = {};
+      for (const team of userTeams) {
+        membersObj[team.id] = await db.getTeamMembers(team.id);
+      }
+      setTeamMembers(membersObj);
+
+      // Switch to my-teams tab
+      setActiveTab("my-teams");
+    } catch (error) {
+      console.error("Error adding sample team:", error);
+      toast({
+        title: "Error",
+        description: "Failed to add sample team. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="container py-8">
       <h1 className="text-3xl font-bold mb-6">Teams</h1>
@@ -226,76 +282,119 @@ export default function Teams() {
               <p className="mb-6 max-w-md mx-auto">
                 Create a new team or join an existing one using a team code.
               </p>
-              <div className="flex gap-4 justify-center">
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <Button onClick={() => setActiveTab("join-team")}>
                   Join a Team
                 </Button>
                 <Button onClick={() => setActiveTab("create-team")}>
                   Create a Team
                 </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleAddSampleTeam}
+                  className="flex items-center gap-2"
+                  disabled={submitting}
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus2 size={16} />
+                      <span>Add Sample Team</span>
+                    </>
+                  )}
+                </Button>
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {teams.map((team) => {
-                const members = teamMembers[team.id] || [];
-                const userMember = members.find(
-                  (m) => m.userId === currentUser?.uid
-                );
+            <div>
+              <div className="flex justify-end mb-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAddSampleTeam}
+                  className="flex items-center gap-2"
+                  disabled={submitting}
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus2 size={16} />
+                      <span>Add Sample Team</span>
+                    </>
+                  )}
+                </Button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {teams.map((team) => {
+                  const members = teamMembers[team.id] || [];
+                  const userMember = members.find(
+                    (m) => m.userId === currentUser?.uid
+                  );
 
-                return (
-                  <Card key={team.id} className="overflow-hidden">
-                    <div
-                      className="h-2"
-                      style={{ backgroundColor: team.color || "#4f46e5" }}
-                    />
-                    <CardHeader>
-                      <CardTitle>{team.name}</CardTitle>
-                      <CardDescription>{team.description}</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="flex justify-between items-center mb-4">
-                        <span className="text-sm font-medium">Team Code:</span>
-                        <Badge variant="outline">{team.teamCode}</Badge>
-                      </div>
-
-                      <div className="mb-4">
-                        <span className="text-sm font-medium block mb-2">
-                          Your Role:
-                        </span>
-                        <Badge
-                          variant={
-                            userMember?.role === "captain"
-                              ? "default"
-                              : "secondary"
-                          }
-                          className="capitalize"
-                        >
-                          {userMember?.role || "Member"}
-                        </Badge>
-                      </div>
-
-                      <div>
-                        <span className="text-sm font-medium block mb-2">
-                          Members:
-                        </span>
-                        <div className="text-sm text-muted-foreground">
-                          {members.length} member
-                          {members.length !== 1 ? "s" : ""}
+                  return (
+                    <Card key={team.id} className="overflow-hidden">
+                      <div
+                        className="h-2"
+                        style={{ backgroundColor: team.color || "#4f46e5" }}
+                      />
+                      <CardHeader>
+                        <CardTitle>{team.name}</CardTitle>
+                        <CardDescription>{team.description}</CardDescription>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="flex justify-between items-center mb-4">
+                          <span className="text-sm font-medium">
+                            Team Code:
+                          </span>
+                          <Badge variant="outline">{team.teamCode}</Badge>
                         </div>
-                      </div>
-                    </CardContent>
-                    <CardFooter>
-                      <Button
-                        className="w-full"
-                        onClick={() => handleViewTeam(team.id)}
-                      >
-                        View Team
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                );
-              })}
+
+                        <div className="mb-4">
+                          <span className="text-sm font-medium block mb-2">
+                            Your Role:
+                          </span>
+                          <Badge
+                            variant={
+                              userMember?.role === "captain"
+                                ? "default"
+                                : "secondary"
+                            }
+                            className="capitalize"
+                          >
+                            {userMember?.role || "Member"}
+                          </Badge>
+                        </div>
+
+                        <div>
+                          <span className="text-sm font-medium block mb-2">
+                            Members:
+                          </span>
+                          <div className="text-sm text-muted-foreground">
+                            {members.length} member
+                            {members.length !== 1 ? "s" : ""}
+                          </div>
+                        </div>
+                      </CardContent>
+                      <CardFooter>
+                        <Button
+                          className="w-full"
+                          onClick={() => handleViewTeam(team.id)}
+                        >
+                          View Team
+                        </Button>
+                      </CardFooter>
+                    </Card>
+                  );
+                })}
+              </div>
             </div>
           )}
         </TabsContent>

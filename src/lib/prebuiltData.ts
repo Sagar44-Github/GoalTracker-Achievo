@@ -1,4 +1,4 @@
-import { Goal, Task, DailyTheme, db } from "./db";
+import { Goal, Task, DailyTheme, db, TeamMember, TeamTask } from "./db";
 
 /**
  * Add realistic goals and tasks that represent common life goals
@@ -514,304 +514,304 @@ export const addPrebuiltData = async (): Promise<void> => {
   } else {
     console.log("Adding additional pre-built data...");
 
-    // Create some additional goals
-    const additionalGoals: Goal[] = [
-      {
-        id: "learning-goal",
-        title: "Learning Journey",
-        createdAt: Date.now() - 20 * 24 * 60 * 60 * 1000, // 20 days ago
-        taskIds: [],
-        order: 3,
-        streakCounter: 4,
-        lastCompletedDate: new Date().toISOString().split("T")[0],
-        color: "#FF9800", // Orange
-        level: 1,
-        xp: 120,
-      },
-      {
-        id: "home-projects",
-        title: "Home Projects",
-        createdAt: Date.now() - 15 * 24 * 60 * 60 * 1000, // 15 days ago
-        taskIds: [],
-        order: 4,
-        streakCounter: 1,
-        lastCompletedDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
-          .toISOString()
-          .split("T")[0],
-        color: "#795548", // Brown
-        level: 1,
-        xp: 85,
-      },
-      {
-        id: "family-time",
-        title: "Family Time",
-        createdAt: Date.now() - 25 * 24 * 60 * 60 * 1000, // 25 days ago
-        taskIds: [],
-        order: 5,
-        streakCounter: 6,
-        lastCompletedDate: new Date().toISOString().split("T")[0],
-        color: "#E91E63", // Pink
-        level: 2,
-        xp: 220,
-        badges: ["consistent-effort", "family-first"],
-      },
-    ];
+  // Create some additional goals
+  const additionalGoals: Goal[] = [
+    {
+      id: "learning-goal",
+      title: "Learning Journey",
+      createdAt: Date.now() - 20 * 24 * 60 * 60 * 1000, // 20 days ago
+      taskIds: [],
+      order: 3,
+      streakCounter: 4,
+      lastCompletedDate: new Date().toISOString().split("T")[0],
+      color: "#FF9800", // Orange
+      level: 1,
+      xp: 120,
+    },
+    {
+      id: "home-projects",
+      title: "Home Projects",
+      createdAt: Date.now() - 15 * 24 * 60 * 60 * 1000, // 15 days ago
+      taskIds: [],
+      order: 4,
+      streakCounter: 1,
+      lastCompletedDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000)
+        .toISOString()
+        .split("T")[0],
+      color: "#795548", // Brown
+      level: 1,
+      xp: 85,
+    },
+    {
+      id: "family-time",
+      title: "Family Time",
+      createdAt: Date.now() - 25 * 24 * 60 * 60 * 1000, // 25 days ago
+      taskIds: [],
+      order: 5,
+      streakCounter: 6,
+      lastCompletedDate: new Date().toISOString().split("T")[0],
+      color: "#E91E63", // Pink
+      level: 2,
+      xp: 220,
+      badges: ["consistent-effort", "family-first"],
+    },
+  ];
 
-    // Add goals
-    for (const goal of additionalGoals) {
-      await db.addGoal(goal);
+  // Add goals
+  for (const goal of additionalGoals) {
+    await db.addGoal(goal);
+  }
+
+  // Create additional tasks
+  const today = new Date().toISOString().split("T")[0];
+  const tomorrow = new Date(Date.now() + 1 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .split("T")[0];
+  const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    .toISOString()
+    .split("T")[0];
+
+  const additionalTasks: Task[] = [
+    // Learning Journey Tasks
+    {
+      id: "task-learn-1",
+      title: "Complete online course module",
+      dueDate: today,
+      suggestedDueDate: today,
+      createdAt: Date.now() - 10 * 24 * 60 * 60 * 1000,
+      goalId: "learning-goal",
+      tags: ["course", "education"],
+      completed: false,
+      priority: "high",
+      isArchived: false,
+      isQuiet: false,
+      repeatPattern: { type: "weekly", interval: 1 },
+      completionTimestamp: null,
+      xp: 60,
+    },
+    {
+      id: "task-learn-2",
+      title: "Practice new language for 20 minutes",
+      dueDate: today,
+      suggestedDueDate: today,
+      createdAt: Date.now() - 20 * 24 * 60 * 60 * 1000,
+      goalId: "learning-goal",
+      tags: ["language", "practice"],
+      completed: true,
+      priority: "medium",
+      isArchived: false,
+      isQuiet: false,
+      repeatPattern: { type: "daily", interval: 1 },
+      completionTimestamp: Date.now() - 1 * 24 * 60 * 60 * 1000,
+      xp: 40,
+      timeSpent: 20 * 60 * 1000,
+    },
+    {
+      id: "task-learn-3",
+      title: "Research new topic of interest",
+      dueDate: nextWeek,
+      suggestedDueDate: nextWeek,
+      createdAt: Date.now() - 5 * 24 * 60 * 60 * 1000,
+      goalId: "learning-goal",
+      tags: ["research", "curiosity"],
+      completed: false,
+      priority: "low",
+      isArchived: false,
+      isQuiet: false,
+      repeatPattern: null,
+      completionTimestamp: null,
+      xp: 50,
+    },
+
+    // Home Projects Tasks
+    {
+      id: "task-home-1",
+      title: "Organize garage",
+      dueDate: nextWeek,
+      suggestedDueDate: nextWeek,
+      createdAt: Date.now() - 7 * 24 * 60 * 60 * 1000,
+      goalId: "home-projects",
+      tags: ["cleaning", "organization"],
+      completed: false,
+      priority: "medium",
+      isArchived: false,
+      isQuiet: false,
+      repeatPattern: null,
+      completionTimestamp: null,
+      xp: 80,
+    },
+    {
+      id: "task-home-2",
+      title: "Fix leaky faucet",
+      dueDate: tomorrow,
+      suggestedDueDate: tomorrow,
+      createdAt: Date.now() - 3 * 24 * 60 * 60 * 1000,
+      goalId: "home-projects",
+      tags: ["repair", "plumbing"],
+      completed: false,
+      priority: "high",
+      isArchived: false,
+      isQuiet: false,
+      repeatPattern: null,
+      completionTimestamp: null,
+      xp: 40,
+    },
+    {
+      id: "task-home-3",
+      title: "Weekly home maintenance check",
+      dueDate: today,
+      suggestedDueDate: today,
+      createdAt: Date.now() - 15 * 24 * 60 * 60 * 1000,
+      goalId: "home-projects",
+      tags: ["maintenance", "routine"],
+      completed: true,
+      priority: "medium",
+      isArchived: false,
+      isQuiet: false,
+      repeatPattern: { type: "weekly", interval: 1 },
+      completionTimestamp: Date.now() - 2 * 24 * 60 * 60 * 1000,
+      xp: 35,
+    },
+
+    // Family Time Tasks
+    {
+      id: "task-family-1",
+      title: "Family game night",
+      dueDate: tomorrow,
+      suggestedDueDate: tomorrow,
+      createdAt: Date.now() - 5 * 24 * 60 * 60 * 1000,
+      goalId: "family-time",
+      tags: ["games", "fun"],
+      completed: false,
+      priority: "high",
+      isArchived: false,
+      isQuiet: false,
+      repeatPattern: { type: "weekly", interval: 1 },
+      completionTimestamp: null,
+      xp: 60,
+    },
+    {
+      id: "task-family-2",
+      title: "Visit grandparents",
+      dueDate: nextWeek,
+      suggestedDueDate: nextWeek,
+      createdAt: Date.now() - 10 * 24 * 60 * 60 * 1000,
+      goalId: "family-time",
+      tags: ["visit", "relatives"],
+      completed: false,
+      priority: "medium",
+      isArchived: false,
+      isQuiet: false,
+      repeatPattern: { type: "monthly", interval: 1 },
+      completionTimestamp: null,
+      xp: 70,
+    },
+    {
+      id: "task-family-3",
+      title: "Daily family dinner",
+      dueDate: today,
+      suggestedDueDate: today,
+      createdAt: Date.now() - 25 * 24 * 60 * 60 * 1000,
+      goalId: "family-time",
+      tags: ["dinner", "daily-ritual"],
+      completed: true,
+      priority: "high",
+      isArchived: false,
+      isQuiet: false,
+      repeatPattern: { type: "daily", interval: 1 },
+      completionTimestamp: Date.now() - 1 * 24 * 60 * 60 * 1000,
+      xp: 30,
+      timeSpent: 60 * 60 * 1000,
+    },
+
+    // Some additional unassigned tasks
+    {
+      id: "task-unassigned-1",
+      title: "Buy groceries",
+      dueDate: tomorrow,
+      suggestedDueDate: tomorrow,
+      createdAt: Date.now() - 1 * 24 * 60 * 60 * 1000,
+      goalId: null,
+      tags: ["shopping", "food"],
+      completed: false,
+      priority: "high",
+      isArchived: false,
+      isQuiet: false,
+      repeatPattern: { type: "weekly", interval: 1 },
+      completionTimestamp: null,
+      xp: 25,
+    },
+    {
+      id: "task-unassigned-2",
+      title: "Schedule dentist appointment",
+      dueDate: nextWeek,
+      suggestedDueDate: nextWeek,
+      createdAt: Date.now() - 2 * 24 * 60 * 60 * 1000,
+      goalId: null,
+      tags: ["health", "appointment"],
+      completed: false,
+      priority: "medium",
+      isArchived: false,
+      isQuiet: false,
+      repeatPattern: null,
+      completionTimestamp: null,
+      xp: 30,
+    },
+  ];
+
+  // Add tasks
+  for (const task of additionalTasks) {
+    await db.addTask(task);
+  }
+
+  // Create history for daily family dinner (task-family-3)
+  const now = Date.now();
+  for (let i = 1; i <= 25; i++) {
+    // Skip occasionally to show some missed days
+    if (i % 11 === 0 || i % 17 === 0) {
+      continue;
     }
 
-    // Create additional tasks
-    const today = new Date().toISOString().split("T")[0];
-    const tomorrow = new Date(Date.now() + 1 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .split("T")[0];
-    const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-      .toISOString()
-      .split("T")[0];
+    const timestamp = now - i * 24 * 60 * 60 * 1000;
+    await db.addHistoryEntry({
+      id: crypto.randomUUID(),
+      type: "complete",
+      entityId: "task-family-3",
+      entityType: "task",
+      timestamp: timestamp,
+      details: { title: "Daily family dinner" },
+    });
+  }
 
-    const additionalTasks: Task[] = [
-      // Learning Journey Tasks
-      {
-        id: "task-learn-1",
-        title: "Complete online course module",
-        dueDate: today,
-        suggestedDueDate: today,
-        createdAt: Date.now() - 10 * 24 * 60 * 60 * 1000,
-        goalId: "learning-goal",
-        tags: ["course", "education"],
-        completed: false,
-        priority: "high",
-        isArchived: false,
-        isQuiet: false,
-        repeatPattern: { type: "weekly", interval: 1 },
-        completionTimestamp: null,
-        xp: 60,
-      },
-      {
-        id: "task-learn-2",
-        title: "Practice new language for 20 minutes",
-        dueDate: today,
-        suggestedDueDate: today,
-        createdAt: Date.now() - 20 * 24 * 60 * 60 * 1000,
-        goalId: "learning-goal",
-        tags: ["language", "practice"],
-        completed: true,
-        priority: "medium",
-        isArchived: false,
-        isQuiet: false,
-        repeatPattern: { type: "daily", interval: 1 },
-        completionTimestamp: Date.now() - 1 * 24 * 60 * 60 * 1000,
-        xp: 40,
-        timeSpent: 20 * 60 * 1000,
-      },
-      {
-        id: "task-learn-3",
-        title: "Research new topic of interest",
-        dueDate: nextWeek,
-        suggestedDueDate: nextWeek,
-        createdAt: Date.now() - 5 * 24 * 60 * 60 * 1000,
-        goalId: "learning-goal",
-        tags: ["research", "curiosity"],
-        completed: false,
-        priority: "low",
-        isArchived: false,
-        isQuiet: false,
-        repeatPattern: null,
-        completionTimestamp: null,
-        xp: 50,
-      },
-
-      // Home Projects Tasks
-      {
-        id: "task-home-1",
-        title: "Organize garage",
-        dueDate: nextWeek,
-        suggestedDueDate: nextWeek,
-        createdAt: Date.now() - 7 * 24 * 60 * 60 * 1000,
-        goalId: "home-projects",
-        tags: ["cleaning", "organization"],
-        completed: false,
-        priority: "medium",
-        isArchived: false,
-        isQuiet: false,
-        repeatPattern: null,
-        completionTimestamp: null,
-        xp: 80,
-      },
-      {
-        id: "task-home-2",
-        title: "Fix leaky faucet",
-        dueDate: tomorrow,
-        suggestedDueDate: tomorrow,
-        createdAt: Date.now() - 3 * 24 * 60 * 60 * 1000,
-        goalId: "home-projects",
-        tags: ["repair", "plumbing"],
-        completed: false,
-        priority: "high",
-        isArchived: false,
-        isQuiet: false,
-        repeatPattern: null,
-        completionTimestamp: null,
-        xp: 40,
-      },
-      {
-        id: "task-home-3",
-        title: "Weekly home maintenance check",
-        dueDate: today,
-        suggestedDueDate: today,
-        createdAt: Date.now() - 15 * 24 * 60 * 60 * 1000,
-        goalId: "home-projects",
-        tags: ["maintenance", "routine"],
-        completed: true,
-        priority: "medium",
-        isArchived: false,
-        isQuiet: false,
-        repeatPattern: { type: "weekly", interval: 1 },
-        completionTimestamp: Date.now() - 2 * 24 * 60 * 60 * 1000,
-        xp: 35,
-      },
-
-      // Family Time Tasks
-      {
-        id: "task-family-1",
-        title: "Family game night",
-        dueDate: tomorrow,
-        suggestedDueDate: tomorrow,
-        createdAt: Date.now() - 5 * 24 * 60 * 60 * 1000,
-        goalId: "family-time",
-        tags: ["games", "fun"],
-        completed: false,
-        priority: "high",
-        isArchived: false,
-        isQuiet: false,
-        repeatPattern: { type: "weekly", interval: 1 },
-        completionTimestamp: null,
-        xp: 60,
-      },
-      {
-        id: "task-family-2",
-        title: "Visit grandparents",
-        dueDate: nextWeek,
-        suggestedDueDate: nextWeek,
-        createdAt: Date.now() - 10 * 24 * 60 * 60 * 1000,
-        goalId: "family-time",
-        tags: ["visit", "relatives"],
-        completed: false,
-        priority: "medium",
-        isArchived: false,
-        isQuiet: false,
-        repeatPattern: { type: "monthly", interval: 1 },
-        completionTimestamp: null,
-        xp: 70,
-      },
-      {
-        id: "task-family-3",
-        title: "Daily family dinner",
-        dueDate: today,
-        suggestedDueDate: today,
-        createdAt: Date.now() - 25 * 24 * 60 * 60 * 1000,
-        goalId: "family-time",
-        tags: ["dinner", "daily-ritual"],
-        completed: true,
-        priority: "high",
-        isArchived: false,
-        isQuiet: false,
-        repeatPattern: { type: "daily", interval: 1 },
-        completionTimestamp: Date.now() - 1 * 24 * 60 * 60 * 1000,
-        xp: 30,
-        timeSpent: 60 * 60 * 1000,
-      },
-
-      // Some additional unassigned tasks
-      {
-        id: "task-unassigned-1",
-        title: "Buy groceries",
-        dueDate: tomorrow,
-        suggestedDueDate: tomorrow,
-        createdAt: Date.now() - 1 * 24 * 60 * 60 * 1000,
-        goalId: null,
-        tags: ["shopping", "food"],
-        completed: false,
-        priority: "high",
-        isArchived: false,
-        isQuiet: false,
-        repeatPattern: { type: "weekly", interval: 1 },
-        completionTimestamp: null,
-        xp: 25,
-      },
-      {
-        id: "task-unassigned-2",
-        title: "Schedule dentist appointment",
-        dueDate: nextWeek,
-        suggestedDueDate: nextWeek,
-        createdAt: Date.now() - 2 * 24 * 60 * 60 * 1000,
-        goalId: null,
-        tags: ["health", "appointment"],
-        completed: false,
-        priority: "medium",
-        isArchived: false,
-        isQuiet: false,
-        repeatPattern: null,
-        completionTimestamp: null,
-        xp: 30,
-      },
-    ];
-
-    // Add tasks
-    for (const task of additionalTasks) {
-      await db.addTask(task);
+  // Create history for language practice (task-learn-2)
+  for (let i = 1; i <= 20; i++) {
+    // Skip more frequently to show a more realistic language learning journey
+    if (i % 3 === 0 || i % 5 === 0) {
+      continue;
     }
 
-    // Create history for daily family dinner (task-family-3)
-    const now = Date.now();
-    for (let i = 1; i <= 25; i++) {
-      // Skip occasionally to show some missed days
-      if (i % 11 === 0 || i % 17 === 0) {
-        continue;
-      }
+    const timestamp = now - i * 24 * 60 * 60 * 1000;
+    await db.addHistoryEntry({
+      id: crypto.randomUUID(),
+      type: "complete",
+      entityId: "task-learn-2",
+      entityType: "task",
+      timestamp: timestamp,
+      details: { title: "Practice new language for 20 minutes" },
+    });
+  }
 
-      const timestamp = now - i * 24 * 60 * 60 * 1000;
-      await db.addHistoryEntry({
-        id: crypto.randomUUID(),
-        type: "complete",
-        entityId: "task-family-3",
-        entityType: "task",
-        timestamp: timestamp,
-        details: { title: "Daily family dinner" },
-      });
-    }
-
-    // Create history for language practice (task-learn-2)
-    for (let i = 1; i <= 20; i++) {
-      // Skip more frequently to show a more realistic language learning journey
-      if (i % 3 === 0 || i % 5 === 0) {
-        continue;
-      }
-
-      const timestamp = now - i * 24 * 60 * 60 * 1000;
-      await db.addHistoryEntry({
-        id: crypto.randomUUID(),
-        type: "complete",
-        entityId: "task-learn-2",
-        entityType: "task",
-        timestamp: timestamp,
-        details: { title: "Practice new language for 20 minutes" },
-      });
-    }
-
-    // Create history for weekly home maintenance (task-home-3)
-    for (let i = 1; i <= 15; i += 7) {
-      const timestamp = now - i * 24 * 60 * 60 * 1000;
-      await db.addHistoryEntry({
-        id: crypto.randomUUID(),
-        type: "complete",
-        entityId: "task-home-3",
-        entityType: "task",
-        timestamp: timestamp,
-        details: { title: "Weekly home maintenance check" },
-      });
+  // Create history for weekly home maintenance (task-home-3)
+  for (let i = 1; i <= 15; i += 7) {
+    const timestamp = now - i * 24 * 60 * 60 * 1000;
+    await db.addHistoryEntry({
+      id: crypto.randomUUID(),
+      type: "complete",
+      entityId: "task-home-3",
+      entityType: "task",
+      timestamp: timestamp,
+      details: { title: "Weekly home maintenance check" },
+    });
     }
   }
 
@@ -1307,4 +1307,250 @@ export const addThemeBasedTasks = async (): Promise<void> => {
   }
 
   console.log("Theme-based tasks added successfully");
+};
+
+/**
+ * Add a sample team with the current user as captain and fictional team members.
+ * This is for demonstration purposes only.
+ */
+export const addSampleTeam = async (
+  currentUserId: string,
+  currentUserName: string
+): Promise<void> => {
+  console.log("Starting sample team creation process...");
+
+  try {
+    // Check if the user already has a sample team
+    const userTeams = await db.getTeamsForUser(currentUserId);
+    const sampleTeamExists = userTeams.some(
+      (team) => team.name === "Productivity Champions"
+    );
+
+    if (sampleTeamExists) {
+      console.log("Sample team already exists. Skipping creation.");
+      return;
+    }
+
+    console.log("Creating sample team with ID based on timestamp...");
+    const timestamp = Date.now();
+
+    // Create the team with a unique ID
+    const team = await db.createTeam({
+      name: "Productivity Champions",
+      description:
+        "A team dedicated to achieving maximum productivity and personal growth.",
+      color: "#9c27b0", // Purple
+      createdBy: currentUserId,
+    });
+
+    console.log(
+      `Sample team created with ID: ${team.id} and code: ${team.teamCode}`
+    );
+
+    // Define fictional team members with unique IDs
+    const teamMembers = [
+      {
+        id: `${team.id}-member1-${timestamp}`,
+        teamId: team.id,
+        userId: `member1-${timestamp}`,
+        displayName: "Alex Thompson",
+        role: "vice-captain" as const,
+        joinedAt: Date.now() - 14 * 24 * 60 * 60 * 1000, // Joined 14 days ago
+        points: 135,
+      },
+      {
+        id: `${team.id}-member2-${timestamp}`,
+        teamId: team.id,
+        userId: `member2-${timestamp}`,
+        displayName: "Jamie Rodriguez",
+        role: "member" as const,
+        joinedAt: Date.now() - 10 * 24 * 60 * 60 * 1000, // Joined 10 days ago
+        points: 87,
+      },
+      {
+        id: `${team.id}-member3-${timestamp}`,
+        teamId: team.id,
+        userId: `member3-${timestamp}`,
+        displayName: "Morgan Chen",
+        role: "member" as const,
+        joinedAt: Date.now() - 7 * 24 * 60 * 60 * 1000, // Joined 7 days ago
+        points: 42,
+      },
+      {
+        id: `${team.id}-member4-${timestamp}`,
+        teamId: team.id,
+        userId: `member4-${timestamp}`,
+        displayName: "Taylor Williams",
+        role: "member" as const,
+        joinedAt: Date.now() - 3 * 24 * 60 * 60 * 1000, // Joined 3 days ago
+        points: 65,
+      },
+    ];
+
+    // Add team members to the database one by one with error handling
+    console.log("Adding team members...");
+    for (const member of teamMembers) {
+      try {
+        await db.add("teamMembers", member);
+        console.log(`Added team member: ${member.displayName}`);
+      } catch (error) {
+        console.error(`Error adding team member ${member.displayName}:`, error);
+      }
+    }
+
+    // Add some sample team tasks with unique IDs
+    const teamTasks = [
+      {
+        id: `${team.id}-task1-${timestamp}`,
+        title: "Prepare weekly team report",
+        description:
+          "Compile the weekly productivity metrics and prepare a summary report",
+        dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .split("T")[0], // Due in 2 days
+        suggestedDueDate: null,
+        createdAt: Date.now(),
+        goalId: null,
+        tags: ["report", "team"],
+        completed: false,
+        priority: "high" as const,
+        isArchived: false,
+        isQuiet: false,
+        repeatPattern: { type: "weekly" as const, interval: 1 },
+        completionTimestamp: null,
+        teamId: team.id,
+        assignedBy: currentUserId,
+        assignedTo: `member1-${timestamp}`, // Assigned to vice-captain
+        pointValue: 5,
+      },
+      {
+        id: `${team.id}-task2-${timestamp}`,
+        title: "Research productivity tools",
+        description:
+          "Find and evaluate new productivity tools that could benefit the team",
+        dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .split("T")[0], // Due in 5 days
+        suggestedDueDate: null,
+        createdAt: Date.now(),
+        goalId: null,
+        tags: ["research", "tools"],
+        completed: false,
+        priority: "medium" as const,
+        isArchived: false,
+        isQuiet: false,
+        repeatPattern: null,
+        completionTimestamp: null,
+        teamId: team.id,
+        assignedBy: currentUserId,
+        assignedTo: `member2-${timestamp}`,
+        pointValue: 3,
+      },
+      {
+        id: `${team.id}-task3-${timestamp}`,
+        title: "Plan team building activity",
+        description: "Organize a virtual team building activity for next month",
+        dueDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .split("T")[0], // Due in 10 days
+        suggestedDueDate: null,
+        createdAt: Date.now(),
+        goalId: null,
+        tags: ["team building", "event"],
+        completed: false,
+        priority: "low" as const,
+        isArchived: false,
+        isQuiet: false,
+        repeatPattern: null,
+        completionTimestamp: null,
+        teamId: team.id,
+        assignedBy: currentUserId,
+        assignedTo: `member3-${timestamp}`,
+        pointValue: 1,
+      },
+      {
+        id: `${team.id}-task4-${timestamp}`,
+        title: "Update team documentation",
+        description: "Review and update the team's documentation and processes",
+        dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .split("T")[0], // Due in 3 days
+        suggestedDueDate: null,
+        createdAt: Date.now(),
+        goalId: null,
+        tags: ["documentation", "process"],
+        completed: true,
+        priority: "medium" as const,
+        isArchived: false,
+        isQuiet: false,
+        repeatPattern: null,
+        completionTimestamp: Date.now() - 12 * 60 * 60 * 1000, // Completed 12 hours ago
+        teamId: team.id,
+        assignedBy: currentUserId,
+        assignedTo: `member4-${timestamp}`,
+        pointValue: 3,
+      },
+      {
+        id: `${team.id}-task5-${timestamp}`,
+        title: "Team weekly check-in",
+        description: "Review progress and discuss any blockers",
+        dueDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000)
+          .toISOString()
+          .split("T")[0], // Due tomorrow
+        suggestedDueDate: null,
+        createdAt: Date.now(),
+        goalId: null,
+        tags: ["meeting", "check-in"],
+        completed: false,
+        priority: "high" as const,
+        isArchived: false,
+        isQuiet: false,
+        repeatPattern: { type: "weekly" as const, interval: 1 },
+        completionTimestamp: null,
+        teamId: team.id,
+        assignedBy: currentUserId,
+        assignedTo: currentUserId, // Assigned to current user (captain)
+        pointValue: 5,
+      },
+    ];
+
+    // Add tasks to the database with error handling
+    console.log("Adding team tasks...");
+    for (const task of teamTasks) {
+      try {
+        await db.add("teamTasks", task);
+        console.log(`Added team task: ${task.title}`);
+      } catch (error) {
+        console.error(`Error adding team task ${task.title}:`, error);
+      }
+    }
+
+    // Add the current user as the team captain if not already added
+    try {
+      const captainMemberId = `${team.id}-${currentUserId}`;
+      const captainExists = await db.getTeamMember(team.id, currentUserId);
+
+      if (!captainExists) {
+        const captainMember = {
+          id: captainMemberId,
+          teamId: team.id,
+          userId: currentUserId,
+          displayName: currentUserName,
+          role: "captain" as const,
+          joinedAt: Date.now(),
+          points: 150,
+        };
+
+        await db.add("teamMembers", captainMember);
+        console.log("Added current user as team captain");
+      }
+    } catch (error) {
+      console.error("Error adding team captain:", error);
+    }
+
+    console.log("Sample team created successfully with members and tasks");
+  } catch (error) {
+    console.error("Error in addSampleTeam function:", error);
+    throw error; // Re-throw to let calling code handle it
+  }
 };

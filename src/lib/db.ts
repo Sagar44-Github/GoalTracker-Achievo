@@ -1105,6 +1105,16 @@ export const db = {
       // Create default themes
       await this.createDefaultThemes();
 
+      // Import sample team modules dynamically to avoid circular dependencies
+      try {
+        const { addSampleTeam } = await import("./prebuiltData");
+        // Create a sample team with a default user ID
+        await addSampleTeam("default-user", "Default User");
+        console.log("Sample team created");
+      } catch (error) {
+        console.error("Error creating sample team:", error);
+      }
+
       console.log("Default data created");
     } catch (error) {
       console.error("Error creating default data:", error);
