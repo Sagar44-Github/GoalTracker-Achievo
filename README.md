@@ -1,8 +1,6 @@
 # Goal Flow Achievo 🚀
 
-**A comprehensive productivity and goal-tracking application designed to help users manage tasks, achieve goals, and collaborate effectively.**
-
-![Goal Flow Achievo Screenshot](placeholder.png) _<!-- TODO: Add a relevant screenshot -->_
+**A comprehensive productivity and goal-tracking application designed to help users manage tasks, achieve goals, and collaborate effectively.**_
 
 ## Overview
 
