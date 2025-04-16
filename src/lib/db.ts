@@ -11,6 +11,38 @@ interface TaskStore {
   };
 }
 
+// Team store interface for indexedDB
+interface TeamStore {
+  key: string;
+  value: Team;
+  indexes: {
+    "by-teamCode": string;
+  };
+}
+
+// Team member store interface for indexedDB
+interface TeamMemberStore {
+  key: string; // composite key: teamId-userId
+  value: TeamMember;
+  indexes: {
+    "by-teamId": string;
+    "by-userId": string;
+    "by-role": string;
+  };
+}
+
+// Team task store interface for indexedDB
+interface TeamTaskStore {
+  key: string;
+  value: TeamTask;
+  indexes: {
+    "by-teamId": string;
+    "by-assignedTo": string;
+    "by-completed": boolean;
+    "by-dueDate": string;
+  };
+}
+
 export interface AchievoDB extends DBSchema {
   goals: {
     key: string;
@@ -32,6 +64,9 @@ export interface AchievoDB extends DBSchema {
     key: string; // userId
     value: UserProfile;
   };
+  teams: TeamStore;
+  teamMembers: TeamMemberStore;
+  teamTasks: TeamTaskStore;
 }
 
 // Define the data types
@@ -82,9 +117,17 @@ export interface RepeatPattern {
 
 export interface HistoryEntry {
   id: string;
-  type: "add" | "complete" | "edit" | "delete" | "archive";
+  type:
+    | "add"
+    | "complete"
+    | "edit"
+    | "delete"
+    | "archive"
+    | "join-team"
+    | "leave-team"
+    | "create-team";
   entityId: string;
-  entityType: "task" | "goal";
+  entityType: "task" | "goal" | "team" | "team-task";
   timestamp: number;
   details: any;
 }
@@ -124,6 +167,64 @@ export interface UserProfile {
   createdAt: number;
   updatedAt: number;
 }
+
+export interface Team {
+  id: string;
+  name: string;
+  description: string;
+  color?: string;
+  teamCode: string; // 6-character unique code for joining
+  createdAt: number;
+  createdBy: string; // userId of creator
+}
+
+export interface TeamMember {
+  id: string; // composite id: teamId-userId
+  teamId: string;
+  userId: string;
+  displayName: string;
+  role: "captain" | "vice-captain" | "member";
+  joinedAt: number;
+  points: number;
+}
+
+export interface TeamTask extends Task {
+  teamId: string;
+  assignedBy: string; // userId of the person who assigned the task
+  assignedTo: string; // userId of the person responsible for the task
+  pointValue: number; // points earned for completion
+}
+
+// Utility function to close any existing connections to the database
+const closeExistingConnections = async () => {
+  try {
+    // Get a list of all databases
+    const databases = await indexedDB.databases();
+
+    // Find our database
+    const ourDb = databases.find((db) => db.name === "achievo-db");
+
+    // If our database exists, delete it to close connections
+    if (ourDb) {
+      await indexedDB.deleteDatabase("achievo-db");
+    }
+  } catch (error) {
+    console.warn("Error closing existing connections:", error);
+  }
+};
+
+// Utility function to generate a random 6-character team code
+const generateTeamCode = (): string => {
+  const characters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // Avoid confusing characters like 0, O, 1, I
+  let result = "";
+
+  for (let i = 0; i < 6; i++) {
+    const randomIndex = Math.floor(Math.random() * characters.length);
+    result += characters.charAt(randomIndex);
+  }
+
+  return result;
+};
 
 // Database singleton
 let dbPromise: Promise<IDBPDatabase<AchievoDB>> | null = null;
@@ -183,6 +284,33 @@ const initDB = async () => {
             db.createObjectStore("userProfiles", { keyPath: "userId" });
           }
 
+          if (!db.objectStoreNames.contains("teams")) {
+            console.log("Creating teams store");
+            const teamsStore = db.createObjectStore("teams", { keyPath: "id" });
+            teamsStore.createIndex("by-teamCode", "teamCode");
+          }
+
+          if (!db.objectStoreNames.contains("teamMembers")) {
+            console.log("Creating team members store");
+            const teamMembersStore = db.createObjectStore("teamMembers", {
+              keyPath: "id",
+            });
+            teamMembersStore.createIndex("by-teamId", "teamId");
+            teamMembersStore.createIndex("by-userId", "userId");
+            teamMembersStore.createIndex("by-role", "role");
+          }
+
+          if (!db.objectStoreNames.contains("teamTasks")) {
+            console.log("Creating team tasks store");
+            const teamTasksStore = db.createObjectStore("teamTasks", {
+              keyPath: "id",
+            });
+            teamTasksStore.createIndex("by-teamId", "teamId");
+            teamTasksStore.createIndex("by-assignedTo", "assignedTo");
+            teamTasksStore.createIndex("by-completed", "completed");
+            teamTasksStore.createIndex("by-dueDate", "dueDate");
+          }
+
           console.log("Database schema upgrade complete");
         },
         blocked() {
@@ -221,44 +349,6 @@ const initDB = async () => {
     }
   }
   return dbPromise;
-};
-
-// Helper function to close existing connections
-const closeExistingConnections = async (): Promise<void> => {
-  try {
-    if (typeof window.indexedDB.databases === "function") {
-      const dbs = await window.indexedDB.databases();
-      const achievoDB = dbs.find((db) => db.name === "achievo-db");
-      if (achievoDB) {
-        console.log("Closing existing database connection");
-        // We can't directly close it, but we can force-delete and recreate it
-        await new Promise<void>((resolve, reject) => {
-          try {
-            // If we have an existing connection, close it
-            if (dbPromise) {
-              dbPromise
-                .then((db) => {
-                  db.close();
-                  dbPromise = null;
-                  resolve();
-                })
-                .catch((err) => {
-                  console.warn("Could not close existing connection:", err);
-                  resolve(); // Continue anyway
-                });
-            } else {
-              resolve();
-            }
-          } catch (e) {
-            console.warn("Error closing connection:", e);
-            resolve(); // Continue anyway
-          }
-        });
-      }
-    }
-  } catch (e) {
-    console.warn("Database closing not supported:", e);
-  }
 };
 
 // Helper function to recover database by deleting and recreating
@@ -1034,6 +1124,10 @@ export const db = {
       await db.clear("tasks");
       await db.clear("history");
       await db.clear("dailyThemes");
+      await db.clear("userProfiles");
+      await db.clear("teams");
+      await db.clear("teamMembers");
+      await db.clear("teamTasks");
 
       console.log("All data cleared from database");
     } catch (error) {
@@ -1207,10 +1301,13 @@ export const db = {
   async createOrUpdateUserProfile(profile: UserProfile): Promise<void> {
     try {
       const db = await initDB();
-      profile.updatedAt = Date.now();
-      await db.put("userProfiles", profile);
+      await db.put("userProfiles", {
+        ...profile,
+        updatedAt: Date.now(),
+      });
     } catch (error) {
       console.error("Error in createOrUpdateUserProfile:", error);
+      throw error;
     }
   },
 
@@ -1220,6 +1317,480 @@ export const db = {
       await db.delete("userProfiles", userId);
     } catch (error) {
       console.error("Error in deleteUserProfile:", error);
+    }
+  },
+
+  // Team operations
+  async createTeam(
+    team: Omit<Team, "id" | "teamCode" | "createdAt">
+  ): Promise<Team> {
+    try {
+      const db = await initDB();
+
+      // Generate a unique team code (6 characters)
+      let teamCode = generateTeamCode();
+      let isUnique = false;
+
+      // Ensure team code is unique
+      while (!isUnique) {
+        const existingTeam = await db.getFromIndex(
+          "teams",
+          "by-teamCode",
+          teamCode
+        );
+        if (!existingTeam) {
+          isUnique = true;
+        } else {
+          teamCode = generateTeamCode();
+        }
+      }
+
+      const newTeam: Team = {
+        id: crypto.randomUUID(),
+        teamCode,
+        createdAt: Date.now(),
+        ...team,
+      };
+
+      await db.add("teams", newTeam);
+
+      // Add the creator as team captain
+      const newTeamMember: TeamMember = {
+        id: `${newTeam.id}-${newTeam.createdBy}`,
+        teamId: newTeam.id,
+        userId: newTeam.createdBy,
+        displayName:
+          (await this.getUserProfile(newTeam.createdBy))?.displayName ||
+          "Captain",
+        role: "captain",
+        joinedAt: Date.now(),
+        points: 0,
+      };
+
+      await db.add("teamMembers", newTeamMember);
+
+      // Add to history
+      await this.addHistoryEntry({
+        id: crypto.randomUUID(),
+        type: "create-team",
+        entityId: newTeam.id,
+        entityType: "team",
+        timestamp: Date.now(),
+        details: { name: newTeam.name },
+      });
+
+      return newTeam;
+    } catch (error) {
+      console.error("Error in createTeam:", error);
+      throw error;
+    }
+  },
+
+  async getTeam(id: string): Promise<Team | undefined> {
+    try {
+      const db = await initDB();
+      return db.get("teams", id);
+    } catch (error) {
+      console.error(`Error in getTeam(${id}):`, error);
+      return undefined;
+    }
+  },
+
+  async getTeamByCode(teamCode: string): Promise<Team | undefined> {
+    try {
+      const db = await initDB();
+      return db.getFromIndex("teams", "by-teamCode", teamCode);
+    } catch (error) {
+      console.error(`Error in getTeamByCode(${teamCode}):`, error);
+      return undefined;
+    }
+  },
+
+  async updateTeam(team: Team): Promise<void> {
+    try {
+      const db = await initDB();
+      await db.put("teams", team);
+    } catch (error) {
+      console.error("Error in updateTeam:", error);
+      throw error;
+    }
+  },
+
+  async deleteTeam(id: string): Promise<void> {
+    try {
+      const db = await initDB();
+
+      // Delete team
+      await db.delete("teams", id);
+
+      // Delete all team members
+      const teamMembers = await this.getTeamMembers(id);
+      for (const member of teamMembers) {
+        await db.delete("teamMembers", member.id);
+      }
+
+      // Delete all team tasks
+      const teamTasks = await this.getTeamTasks(id);
+      for (const task of teamTasks) {
+        await db.delete("teamTasks", task.id);
+      }
+    } catch (error) {
+      console.error(`Error in deleteTeam(${id}):`, error);
+      throw error;
+    }
+  },
+
+  async getAllTeams(): Promise<Team[]> {
+    try {
+      const db = await initDB();
+      return db.getAll("teams");
+    } catch (error) {
+      console.error("Error in getAllTeams:", error);
+      return [];
+    }
+  },
+
+  async getTeamsForUser(userId: string): Promise<Team[]> {
+    try {
+      const db = await initDB();
+      const teamMembers = await db.getAllFromIndex(
+        "teamMembers",
+        "by-userId",
+        userId
+      );
+
+      const teams: Team[] = [];
+      for (const member of teamMembers) {
+        const team = await this.getTeam(member.teamId);
+        if (team) {
+          teams.push(team);
+        }
+      }
+
+      return teams;
+    } catch (error) {
+      console.error(`Error in getTeamsForUser(${userId}):`, error);
+      return [];
+    }
+  },
+
+  // Team Member operations
+  async joinTeam(
+    teamCode: string,
+    userId: string,
+    displayName: string
+  ): Promise<TeamMember | null> {
+    try {
+      const db = await initDB();
+
+      // Find team by code
+      const team = await this.getTeamByCode(teamCode);
+      if (!team) {
+        throw new Error("Team not found. Invalid team code.");
+      }
+
+      // Check if user is already a member
+      const existingMember = await db.getFromIndex(
+        "teamMembers",
+        "by-userId",
+        userId
+      );
+
+      if (existingMember) {
+        throw new Error("You are already a member of this team.");
+      }
+
+      // Create new team member
+      const newTeamMember: TeamMember = {
+        id: `${team.id}-${userId}`,
+        teamId: team.id,
+        userId,
+        displayName,
+        role: "member", // Default role is member
+        joinedAt: Date.now(),
+        points: 0,
+      };
+
+      await db.add("teamMembers", newTeamMember);
+
+      // Add to history
+      await this.addHistoryEntry({
+        id: crypto.randomUUID(),
+        type: "join-team",
+        entityId: team.id,
+        entityType: "team",
+        timestamp: Date.now(),
+        details: {
+          teamName: team.name,
+          userId,
+          displayName,
+        },
+      });
+
+      return newTeamMember;
+    } catch (error) {
+      console.error(`Error in joinTeam(${teamCode}, ${userId}):`, error);
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error("Failed to join team");
+    }
+  },
+
+  async leaveTeam(teamId: string, userId: string): Promise<void> {
+    try {
+      const db = await initDB();
+
+      // Check if user is a member
+      const memberId = `${teamId}-${userId}`;
+      const member = await db.get("teamMembers", memberId);
+
+      if (!member) {
+        throw new Error("You are not a member of this team.");
+      }
+
+      // Get team for history entry
+      const team = await this.getTeam(teamId);
+
+      // Delete team member
+      await db.delete("teamMembers", memberId);
+
+      // Add to history
+      if (team) {
+        await this.addHistoryEntry({
+          id: crypto.randomUUID(),
+          type: "leave-team",
+          entityId: teamId,
+          entityType: "team",
+          timestamp: Date.now(),
+          details: {
+            teamName: team.name,
+            userId,
+            displayName: member.displayName,
+          },
+        });
+      }
+    } catch (error) {
+      console.error(`Error in leaveTeam(${teamId}, ${userId}):`, error);
+      throw error;
+    }
+  },
+
+  async getTeamMembers(teamId: string): Promise<TeamMember[]> {
+    try {
+      const db = await initDB();
+      return db.getAllFromIndex("teamMembers", "by-teamId", teamId);
+    } catch (error) {
+      console.error(`Error in getTeamMembers(${teamId}):`, error);
+      return [];
+    }
+  },
+
+  async getTeamMember(
+    teamId: string,
+    userId: string
+  ): Promise<TeamMember | undefined> {
+    try {
+      const db = await initDB();
+      return db.get("teamMembers", `${teamId}-${userId}`);
+    } catch (error) {
+      console.error(`Error in getTeamMember(${teamId}, ${userId}):`, error);
+      return undefined;
+    }
+  },
+
+  async updateTeamMember(member: TeamMember): Promise<void> {
+    try {
+      const db = await initDB();
+      await db.put("teamMembers", member);
+    } catch (error) {
+      console.error("Error in updateTeamMember:", error);
+      throw error;
+    }
+  },
+
+  async changeTeamMemberRole(
+    teamId: string,
+    userId: string,
+    newRole: "captain" | "vice-captain" | "member"
+  ): Promise<void> {
+    try {
+      const db = await initDB();
+
+      // Get the team member
+      const memberId = `${teamId}-${userId}`;
+      const member = await db.get("teamMembers", memberId);
+
+      if (!member) {
+        throw new Error("Team member not found");
+      }
+
+      // If changing to captain, demote current captain to vice-captain
+      if (newRole === "captain") {
+        const currentCaptain = await db.getAllFromIndex(
+          "teamMembers",
+          "by-role",
+          "captain"
+        );
+
+        for (const captain of currentCaptain) {
+          if (captain.teamId === teamId) {
+            await db.put("teamMembers", {
+              ...captain,
+              role: "vice-captain",
+            });
+          }
+        }
+      }
+
+      // Update member role
+      await db.put("teamMembers", {
+        ...member,
+        role: newRole,
+      });
+    } catch (error) {
+      console.error(
+        `Error in changeTeamMemberRole(${teamId}, ${userId}, ${newRole}):`,
+        error
+      );
+      throw error;
+    }
+  },
+
+  // Team Task operations
+  async createTeamTask(
+    task: Omit<TeamTask, "id" | "createdAt">
+  ): Promise<string> {
+    try {
+      const db = await initDB();
+
+      const newTask: TeamTask = {
+        id: crypto.randomUUID(),
+        createdAt: Date.now(),
+        completionTimestamp: null,
+        ...task,
+      };
+
+      await db.add("teamTasks", newTask);
+
+      // Add to history
+      await this.addHistoryEntry({
+        id: crypto.randomUUID(),
+        type: "add",
+        entityId: newTask.id,
+        entityType: "team-task",
+        timestamp: Date.now(),
+        details: {
+          title: newTask.title,
+          teamId: newTask.teamId,
+          assignedTo: newTask.assignedTo,
+        },
+      });
+
+      return newTask.id;
+    } catch (error) {
+      console.error("Error in createTeamTask:", error);
+      throw error;
+    }
+  },
+
+  async getTeamTask(id: string): Promise<TeamTask | undefined> {
+    try {
+      const db = await initDB();
+      return db.get("teamTasks", id);
+    } catch (error) {
+      console.error(`Error in getTeamTask(${id}):`, error);
+      return undefined;
+    }
+  },
+
+  async updateTeamTask(task: TeamTask): Promise<void> {
+    try {
+      const db = await initDB();
+      await db.put("teamTasks", task);
+    } catch (error) {
+      console.error("Error in updateTeamTask:", error);
+      throw error;
+    }
+  },
+
+  async deleteTeamTask(id: string): Promise<void> {
+    try {
+      const db = await initDB();
+      await db.delete("teamTasks", id);
+    } catch (error) {
+      console.error(`Error in deleteTeamTask(${id}):`, error);
+      throw error;
+    }
+  },
+
+  async getTeamTasks(teamId: string): Promise<TeamTask[]> {
+    try {
+      const db = await initDB();
+      return db.getAllFromIndex("teamTasks", "by-teamId", teamId);
+    } catch (error) {
+      console.error(`Error in getTeamTasks(${teamId}):`, error);
+      return [];
+    }
+  },
+
+  async getTasksAssignedToUser(userId: string): Promise<TeamTask[]> {
+    try {
+      const db = await initDB();
+      return db.getAllFromIndex("teamTasks", "by-assignedTo", userId);
+    } catch (error) {
+      console.error(`Error in getTasksAssignedToUser(${userId}):`, error);
+      return [];
+    }
+  },
+
+  async completeTeamTask(taskId: string): Promise<void> {
+    try {
+      const db = await initDB();
+
+      // Get the task
+      const task = await db.get("teamTasks", taskId);
+      if (!task) {
+        throw new Error("Task not found");
+      }
+
+      // Get the team member
+      const memberId = `${task.teamId}-${task.assignedTo}`;
+      const member = await db.get("teamMembers", memberId);
+      if (!member) {
+        throw new Error("Team member not found");
+      }
+
+      // Update task completion
+      await db.put("teamTasks", {
+        ...task,
+        completed: true,
+        completionTimestamp: Date.now(),
+      });
+
+      // Award points to the team member
+      await db.put("teamMembers", {
+        ...member,
+        points: member.points + (task.pointValue || 1),
+      });
+
+      // Add to history
+      await this.addHistoryEntry({
+        id: crypto.randomUUID(),
+        type: "complete",
+        entityId: taskId,
+        entityType: "team-task",
+        timestamp: Date.now(),
+        details: {
+          title: task.title,
+          teamId: task.teamId,
+          assignedTo: task.assignedTo,
+          pointsAwarded: task.pointValue || 1,
+        },
+      });
+    } catch (error) {
+      console.error(`Error in completeTeamTask(${taskId}):`, error);
+      throw error;
     }
   },
 };

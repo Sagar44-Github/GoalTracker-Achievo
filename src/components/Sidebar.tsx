@@ -16,6 +16,7 @@ import {
   Palette,
   Archive,
   GripVertical,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -248,6 +249,19 @@ export function Sidebar() {
           variant="ghost"
           className={cn(
             "w-full justify-start mb-1",
+            location.pathname.startsWith("/teams") &&
+              "bg-sidebar-accent text-sidebar-accent-foreground"
+          )}
+          onClick={() => navigate("/teams")}
+        >
+          <Users size={18} className="mr-2" />
+          {!isCollapsed && <span className="truncate">Teams</span>}
+        </Button>
+
+        <Button
+          variant="ghost"
+          className={cn(
+            "w-full justify-start mb-1",
             showGamificationView &&
               "bg-sidebar-accent text-sidebar-accent-foreground"
           )}
@@ -359,6 +373,10 @@ export function Sidebar() {
                 Account Settings
               </DropdownMenuItem>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate("/teams")}>
+                <Users className="mr-2 h-4 w-4" />
+                Teams
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate("/archived-goals")}>
                 <Archive className="mr-2 h-4 w-4" />
                 Archived Goals

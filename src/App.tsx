@@ -9,6 +9,9 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import ForgotPassword from "./pages/ForgotPassword";
 import Profile from "./pages/Profile";
+import Teams from "./pages/Teams";
+import TeamDetail from "./pages/TeamDetail";
+import TeamSettings from "./pages/TeamSettings";
 import { FloatingDashboard } from "@/components/FloatingDashboard";
 import { ScrollToTopButton } from "@/components/ScrollToTopButton";
 import { AppProvider } from "@/context/AppContext";
@@ -64,6 +67,30 @@ const App = () => (
                   element={
                     <ProtectedRoute>
                       <ArchivedTasks />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/teams"
+                  element={
+                    <ProtectedRoute>
+                      <Teams />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/teams/:teamId"
+                  element={
+                    <ProtectedRoute>
+                      <TeamDetail />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/teams/:teamId/settings"
+                  element={
+                    <ProtectedRoute>
+                      <TeamSettings />
                     </ProtectedRoute>
                   }
                 />
