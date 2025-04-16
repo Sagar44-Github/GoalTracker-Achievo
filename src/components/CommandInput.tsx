@@ -87,8 +87,18 @@ export function CommandInput() {
         ) {
           handleCommandExecution("exit focus mode");
         } else {
-          // For other commands, just execute the transcript
-          handleCommandExecution(transcript);
+          // Check if the transcript already starts with a known command
+          const hasKnownPrefix =
+            /^(add|create|set|go|exit|show|hide|focus)/i.test(lowerTranscript);
+
+          // If it doesn't have a known prefix, assume it's a task to add
+          if (!hasKnownPrefix) {
+            console.log(`Adding "add" prefix to command: "${transcript}"`);
+            handleCommandExecution(`add ${transcript}`);
+          } else {
+            // Otherwise, execute as is
+            handleCommandExecution(transcript);
+          }
         }
       };
 

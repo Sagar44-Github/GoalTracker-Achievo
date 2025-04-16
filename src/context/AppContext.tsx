@@ -456,11 +456,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     // Debounce to prevent excessive re-renders
     const timeoutId = setTimeout(() => {
-      applyTaskFilter();
+      // Don't override the filtered tasks if in focus mode
+      if (!isFocusMode) {
+        applyTaskFilter();
+      }
     }, 100);
 
     return () => clearTimeout(timeoutId);
-  }, [tasks, currentGoalId]);
+  }, [tasks, currentGoalId, isFocusMode]);
 
   // Set current goal with optimized loading state
   const setGoalWithLoading = (goalId: string | null) => {
@@ -475,13 +478,16 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       setCurrentGoalId(goalId);
 
       // Apply filter immediately for this goal to reduce perceived delay
-      const goalTasks = tasks.filter(
-        (task) =>
-          !task.isArchived &&
-          task.isQuiet !== true &&
-          (goalId ? task.goalId === goalId : true)
-      );
-      setFilteredTasks(goalTasks);
+      // But don't override focus mode filtered tasks
+      if (!isFocusMode) {
+        const goalTasks = tasks.filter(
+          (task) =>
+            !task.isArchived &&
+            task.isQuiet !== true &&
+            (goalId ? task.goalId === goalId : true)
+        );
+        setFilteredTasks(goalTasks);
+      }
 
       // End loading state after a short delay
       setTimeout(() => {
@@ -492,6 +498,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   // Filter tasks by specific criteria
   const filterTasks = (filter: "all" | "today" | "completed" | "archived") => {
+    // Don't change filtered tasks when in focus mode
+    if (isFocusMode) return;
+
     const today = new Date().toISOString().split("T")[0];
 
     switch (filter) {
@@ -915,39 +924,46 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   // Focus mode functions
   const enterFocusMode = () => {
-    // Hide non-priority tasks and select top urgent task
-    const urgentTasks = tasks
-      .filter((task) => !task.completed && !task.isArchived)
-      .sort((a, b) => {
-        // Sort by priority first
-        const priorityOrder = { high: 3, medium: 2, low: 1 };
-        const aPriority =
-          priorityOrder[a.priority as keyof typeof priorityOrder] || 0;
-        const bPriority =
-          priorityOrder[b.priority as keyof typeof priorityOrder] || 0;
+    console.log(`Entering focus mode. Total tasks: ${tasks.length}`);
 
-        if (aPriority !== bPriority) {
-          return bPriority - aPriority; // Higher priority first
-        }
+    // Clean up any previous focus mode state
+    if (focusTimerInterval) {
+      clearInterval(focusTimerInterval);
+    }
 
-        // Then by due date
-        if (a.dueDate && b.dueDate) {
-          return a.dueDate.localeCompare(b.dueDate);
-        } else if (a.dueDate) {
-          return -1;
-        } else if (b.dueDate) {
-          return 1;
-        }
+    // Get all incomplete and non-archived tasks
+    const availableTasks = tasks.filter(
+      (task) => !task.completed && !task.isArchived
+    );
+    console.log(`Available non-completed tasks: ${availableTasks.length}`);
 
-        // Finally by creation date
-        return a.createdAt - b.createdAt;
-      });
+    // Find high priority tasks
+    const highPriorityTasks = availableTasks.filter(
+      (task) => task.priority === "high"
+    );
+    console.log(`High priority tasks: ${highPriorityTasks.length}`);
 
-    // Filter to only show high priority tasks
-    setFilteredTasks(urgentTasks.filter((task) => task.priority === "high"));
+    // Sort by priority and due date
+    const sortedTasks = highPriorityTasks.sort((a, b) => {
+      // Sort by due date
+      if (a.dueDate && b.dueDate) {
+        return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+      } else if (a.dueDate) {
+        return -1;
+      } else if (b.dueDate) {
+        return 1;
+      }
+
+      // Then by creation date
+      return a.createdAt - b.createdAt;
+    });
+
+    console.log(
+      `Setting filtered tasks in focus mode to ${sortedTasks.length} tasks`
+    );
 
     // Start a 25-minute timer (1500 seconds)
-    setFocusTimer(1500);
+    const timer = 1500;
 
     // Update the timer every second
     const interval = setInterval(() => {
@@ -958,6 +974,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
             clearInterval(focusTimerInterval);
           }
           setIsFocusMode(false);
+          document.documentElement.classList.remove("focus-mode");
 
           // Show completion notification
           toast({
@@ -966,12 +983,18 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
               "25-minute focus session has ended. Take a short break before starting another one.",
           });
 
+          // Reapply normal filter
+          setTimeout(() => applyTaskFilter(), 100);
+
           return null;
         }
         return prevTimer - 1;
       });
     }, 1000);
 
+    // Apply all state changes at once to prevent re-renders in between
+    setFilteredTasks(sortedTasks);
+    setFocusTimer(timer);
     setFocusTimerInterval(interval);
     setIsFocusMode(true);
 
@@ -997,6 +1020,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       clearInterval(focusTimerInterval);
     }
 
+    // Reapply the task filter to show appropriate tasks
+    applyTaskFilter();
+
+    // Remove focus mode class from document
+    document.documentElement.classList.remove("focus-mode");
+
+    // Force a task refresh to ensure clean state
+    refreshData();
+
     // Show completion notification
     toast({
       title: "Focus mode exited",
@@ -1017,6 +1049,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const executeCommand = async (
     command: string
   ): Promise<{ success: boolean; message: string }> => {
+    console.log(`Executing command: "${command}"`);
+
     // Focus mode commands
     if (command.trim().toLowerCase() === "go into focus mode") {
       enterFocusMode();
@@ -1035,6 +1069,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const addMatch = command.match(
       /^add\s+(.+?)(?:\s+by\s+(.+?))?(?:\s+under\s+(.+?))?$/i
     );
+
+    console.log("Add command match:", addMatch);
 
     if (addMatch) {
       const title = addMatch[1].trim();
@@ -1461,6 +1497,47 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       });
     }
   };
+
+  // Ensure focus mode tasks remain correctly filtered
+  useEffect(() => {
+    if (isFocusMode) {
+      console.log("Maintaining focus mode filtered tasks");
+      // Get all incomplete and non-archived tasks
+      const availableTasks = tasks.filter(
+        (task) => !task.completed && !task.isArchived
+      );
+
+      // Find high priority tasks
+      const highPriorityTasks = availableTasks.filter(
+        (task) => task.priority === "high"
+      );
+
+      console.log(
+        `Focus mode - found ${highPriorityTasks.length} high priority tasks out of ${availableTasks.length} available tasks`
+      );
+
+      // Sort by priority and due date
+      const sortedTasks = highPriorityTasks.sort((a, b) => {
+        // Sort by due date
+        if (a.dueDate && b.dueDate) {
+          return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+        } else if (a.dueDate) {
+          return -1;
+        } else if (b.dueDate) {
+          return 1;
+        }
+
+        // Then by creation date
+        return a.createdAt - b.createdAt;
+      });
+
+      console.log(
+        "Setting filtered tasks in focus mode:",
+        sortedTasks.map((t) => t.title)
+      );
+      setFilteredTasks(sortedTasks);
+    }
+  }, [isFocusMode, tasks]);
 
   // Wrap provider value in try-catch to prevent unhandled errors
   let providerValue: AppContextType;

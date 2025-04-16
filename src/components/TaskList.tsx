@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useApp } from "@/context/AppContext";
 import { Button } from "@/components/ui/button";
 import { TaskItem } from "./TaskItem";
@@ -103,6 +103,7 @@ export function TaskList() {
     isDailyThemeModeEnabled,
     currentDayTheme,
     getTasksMatchingCurrentTheme,
+    tasks,
   } = useApp();
 
   const [isAddTaskDialogOpen, setIsAddTaskDialogOpen] = useState(false);
@@ -335,14 +336,25 @@ export function TaskList() {
   // Auto-focus on the first high-priority task when in focus mode
   useEffect(() => {
     if (isFocusMode && sortedTasks.length > 0) {
-      // Scroll to the top task
-      const topTaskElement = document.getElementById(
-        `task-${sortedTasks[0].id}`
-      );
-      if (topTaskElement) {
-        topTaskElement.scrollIntoView({ behavior: "smooth", block: "center" });
-        topTaskElement.classList.add("focus-highlight");
-      }
+      // Clear any previous highlights first
+      document.querySelectorAll(".focus-highlight").forEach((el) => {
+        el.classList.remove("focus-highlight");
+      });
+
+      // Set a small timeout to ensure the DOM has updated
+      setTimeout(() => {
+        // Scroll to the top task
+        const topTaskElement = document.getElementById(
+          `task-${sortedTasks[0].id}`
+        );
+        if (topTaskElement) {
+          topTaskElement.scrollIntoView({
+            behavior: "smooth",
+            block: "center",
+          });
+          topTaskElement.classList.add("focus-highlight");
+        }
+      }, 100);
     }
 
     return () => {
@@ -380,11 +392,75 @@ export function TaskList() {
     ? getTasksMatchingCurrentTheme()
     : [];
 
-  // Determine which tasks to display based on the theme filter
-  const displayTasks =
-    showThemeFilteredTasks && isDailyThemeModeEnabled
-      ? tasksMatchingTheme
-      : sortedTasks;
+  // Get high priority tasks directly from all tasks when in focus mode
+  const focusModeTasksOverride = useMemo(() => {
+    if (!isFocusMode) return [];
+
+    // First try high priority tasks
+    const highPriority = tasks.filter(
+      (task) => task.priority === "high" && !task.completed && !task.isArchived
+    );
+
+    console.log(
+      "FOCUS MODE EMERGENCY FIX - High priority tasks count:",
+      highPriority.length
+    );
+
+    // If there are no high priority tasks, fall back to medium priority tasks
+    if (highPriority.length === 0) {
+      console.log(
+        "FOCUS MODE EMERGENCY FIX - No high priority tasks, using medium priority as fallback"
+      );
+      const mediumPriority = tasks.filter(
+        (task) =>
+          task.priority === "medium" && !task.completed && !task.isArchived
+      );
+
+      if (mediumPriority.length > 0) {
+        return mediumPriority;
+      }
+
+      // Last resort - just show any incomplete tasks
+      console.log(
+        "FOCUS MODE EMERGENCY FIX - No medium priority tasks either, showing any incomplete tasks"
+      );
+      return tasks.filter((task) => !task.completed && !task.isArchived);
+    }
+
+    return highPriority;
+  }, [isFocusMode, tasks]);
+
+  // Debug what tasks are being displayed in focus mode
+  useEffect(() => {
+    if (isFocusMode) {
+      console.log("FOCUS MODE EMERGENCY - tasks list stats:");
+      console.log("All tasks total:", tasks.length);
+      console.log(
+        "High priority tasks:",
+        tasks.filter((t) => t.priority === "high").length
+      );
+      console.log(
+        "Incomplete high priority:",
+        tasks.filter((t) => t.priority === "high" && !t.completed).length
+      );
+      console.log("Focus mode tasks override:", focusModeTasksOverride.length);
+
+      // Check if we have any tasks that should appear
+      if (focusModeTasksOverride.length > 0) {
+        console.log(
+          "Example focus task titles:",
+          focusModeTasksOverride.slice(0, 3).map((t) => t.title)
+        );
+      }
+    }
+  }, [isFocusMode, tasks, focusModeTasksOverride]);
+
+  // Determine which tasks to display based on focus mode or theme filter
+  const displayTasks = isFocusMode
+    ? focusModeTasksOverride
+    : showThemeFilteredTasks && isDailyThemeModeEnabled
+    ? tasksMatchingTheme
+    : sortedTasks;
 
   return (
     <div className="h-full flex flex-col overflow-hidden p-4">
@@ -484,11 +560,14 @@ export function TaskList() {
                 return (
                   <li
                     key={task.id}
-                    className={`border rounded-lg shadow-sm ${
-                      fromArchivedGoal
-                        ? "border-amber-300 dark:border-amber-700"
-                        : ""
-                    }`}
+                    id={`task-${task.id}`}
+                    className={cn(
+                      "border rounded-lg shadow-sm",
+                      fromArchivedGoal &&
+                        "border-amber-300 dark:border-amber-700",
+                      isFocusMode &&
+                        "bg-achievo-purple/10 border-achievo-purple border-2 p-1 my-4 shadow-md"
+                    )}
                   >
                     {fromArchivedGoal && (
                       <div className="bg-amber-100 dark:bg-amber-950 px-2 py-0.5 text-xs flex items-center">
@@ -500,9 +579,26 @@ export function TaskList() {
                   </li>
                 );
               })}
-              {displayTasks.length === 0 && (
+              {displayTasks.length === 0 && !isFocusMode && (
                 <li className="text-center py-8 text-muted-foreground">
                   No tasks to display
+                </li>
+              )}
+
+              {displayTasks.length === 0 && isFocusMode && (
+                <li className="text-center py-8 bg-red-100 dark:bg-red-950 border border-red-300 dark:border-red-800 rounded-lg">
+                  <p className="font-bold text-red-600 dark:text-red-400">
+                    Focus Mode Issue
+                  </p>
+                  <p className="text-sm">
+                    No high priority tasks found! Try creating a task with high
+                    priority.
+                  </p>
+                  <p className="mt-4 text-xs">
+                    Debug info: Total tasks: {tasks.length}, High priority:{" "}
+                    {tasks.filter((t) => t.priority === "high").length},
+                    Incomplete: {tasks.filter((t) => !t.completed).length}
+                  </p>
                 </li>
               )}
             </ul>

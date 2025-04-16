@@ -24,6 +24,7 @@ import { GamificationView } from "@/components/GamificationView";
 import { Button } from "@/components/ui/button";
 import { addPrebuiltData, addInactivityDemoData } from "@/lib/prebuiltData";
 import { toast } from "@/hooks/use-toast";
+import { ChatAssistant } from "@/components/ChatAssistant";
 
 // Add CSS for sidebar-related layout adjustments
 import "../styles/sidebar-layout.css";
@@ -128,13 +129,13 @@ const Index = () => {
         title: "Test Task",
         dueDate: today,
         suggestedDueDate: today,
-        priority: "medium",
+        priority: "high", // Make it high priority so it shows up in focus mode
         tags: ["test"],
       });
       if (refreshData) refreshData();
       toast({
         title: "Test Task Created",
-        description: "A new test task has been added",
+        description: "A new high priority test task has been added",
       });
     }
   };
@@ -170,7 +171,29 @@ const Index = () => {
         {/* Only show sidebar when not in focus mode */}
         <Sidebar />
         <div className="flex-1 overflow-auto main-content">
-          <div className="p-4 flex flex-wrap gap-2 justify-end">
+          <GamificationView />
+        </div>
+      </div>
+    );
+  }
+
+  // Show only focus mode when active
+  if (isFocusMode) {
+    return <FocusMode />;
+  }
+
+  return (
+    <div
+      className={cn(
+        "h-screen flex overflow-hidden app-container",
+        sidebarCollapsed && "sidebar-collapsed"
+      )}
+    >
+      <Sidebar />
+      <div className="flex-1 flex flex-col overflow-hidden main-content">
+        {/* Emergency reset UI - only shown in developer mode */}
+        {process.env.NODE_ENV === "development" && (
+          <div className="border-b p-2 flex justify-end flex-wrap gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -187,7 +210,7 @@ const Index = () => {
               onClick={handleCreateTestGoal}
             >
               <Target size={16} />
-              <span>Create Test Goal</span>
+              <span>Create Goal</span>
             </Button>
             <Button
               variant="outline"
@@ -196,7 +219,7 @@ const Index = () => {
               onClick={handleCreateTestTask}
             >
               <CheckSquare size={16} />
-              <span>Create Test Task</span>
+              <span>Create Task</span>
             </Button>
             {showEmergencyReset && (
               <Button
@@ -209,130 +232,65 @@ const Index = () => {
                 <span>Reset Database</span>
               </Button>
             )}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="flex items-center gap-1"
+              onClick={() => setShowEmergencyReset((prev) => !prev)}
+            >
+              <RefreshCw size={16} />
+              <span>Show Reset Option</span>
+            </Button>
           </div>
-          <GamificationView />
+        )}
+
+        <div className="flex-1 p-2 overflow-auto">
+          {isMobile ? (
+            // Mobile view - simplify with just Task List
+            <div className="h-full">
+              <TaskList />
+            </div>
+          ) : (
+            // Desktop view - Tabs with Task & Dashboard
+            <Tabs
+              defaultValue="tasks"
+              value={activeTab}
+              onValueChange={(value) => setActiveTab(value as any)}
+              className="h-full flex flex-col"
+            >
+              <div className="flex justify-between items-center mb-2">
+                <TabsList>
+                  <TabsTrigger value="tasks" className="flex items-center">
+                    <ListTodo className="mr-2 h-4 w-4" />
+                    Tasks
+                  </TabsTrigger>
+                  <TabsTrigger value="dashboard" className="flex items-center">
+                    <BarChart3 className="mr-2 h-4 w-4" />
+                    Dashboard
+                  </TabsTrigger>
+                </TabsList>
+              </div>
+
+              <TabsContent
+                value="tasks"
+                className="flex-1 overflow-hidden space-y-1 mt-0"
+              >
+                <TaskList />
+              </TabsContent>
+
+              <TabsContent
+                value="dashboard"
+                className="flex-1 overflow-auto space-y-8 mt-0"
+              >
+                <Dashboard />
+              </TabsContent>
+            </Tabs>
+          )}
         </div>
       </div>
-    );
-  }
 
-  return (
-    <div
-      className={cn(
-        "h-screen flex overflow-hidden app-container transition-all duration-200",
-        isFocusMode && "focus-mode-container",
-        sidebarCollapsed && "sidebar-collapsed"
-      )}
-    >
-      {/* Only show sidebar when not in focus mode */}
-      {!isFocusMode && <Sidebar />}
-
-      <div className="flex-1 flex flex-col overflow-hidden main-content">
-        {!isFocusMode && (
-          <div className="p-2 flex flex-wrap gap-2 justify-end">
-            <div className="flex flex-wrap gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-1"
-                onClick={handleAddDemoData}
-              >
-                <Database size={16} />
-                <span>Add Demo Data</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-1"
-                onClick={handleCreateTestGoal}
-              >
-                <Target size={16} />
-                <span>Create Goal</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="flex items-center gap-1"
-                onClick={handleCreateTestTask}
-              >
-                <CheckSquare size={16} />
-                <span>Create Task</span>
-              </Button>
-              {showEmergencyReset && (
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  className="flex items-center gap-1"
-                  onClick={resetDatabase}
-                >
-                  <AlertTriangle size={16} />
-                  <span>Reset Database</span>
-                </Button>
-              )}
-              <Button
-                variant="ghost"
-                size="sm"
-                className="flex items-center gap-1"
-                onClick={() => setShowEmergencyReset((prev) => !prev)}
-              >
-                <RefreshCw size={16} />
-                <span>Show Reset Option</span>
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {isFocusMode ? (
-          <FocusMode />
-        ) : (
-          <div className="flex-1 p-2 overflow-auto">
-            {isMobile ? (
-              // Mobile view - simplify with just Task List
-              <div className="h-full">
-                <TaskList />
-              </div>
-            ) : (
-              // Desktop view - Tabs with Task & Dashboard
-              <Tabs
-                defaultValue="tasks"
-                value={activeTab}
-                onValueChange={(value) => setActiveTab(value as any)}
-                className="h-full flex flex-col"
-              >
-                <div className="flex justify-between items-center mb-2">
-                  <TabsList>
-                    <TabsTrigger value="tasks" className="flex items-center">
-                      <ListTodo className="mr-2 h-4 w-4" />
-                      Tasks
-                    </TabsTrigger>
-                    <TabsTrigger
-                      value="dashboard"
-                      className="flex items-center"
-                    >
-                      <BarChart3 className="mr-2 h-4 w-4" />
-                      Dashboard
-                    </TabsTrigger>
-                  </TabsList>
-                </div>
-
-                <TabsContent
-                  value="tasks"
-                  className="flex-1 overflow-hidden space-y-1 mt-0"
-                >
-                  <TaskList />
-                </TabsContent>
-
-                <TabsContent
-                  value="dashboard"
-                  className="flex-1 overflow-auto space-y-8 mt-0"
-                >
-                  <Dashboard />
-                </TabsContent>
-              </Tabs>
-            )}
-          </div>
-        )}
-      </div>
+      {/* Chat Assistant */}
+      <ChatAssistant />
     </div>
   );
 };

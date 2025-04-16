@@ -115,6 +115,10 @@ export function TaskItem({ task }: TaskItemProps) {
 
   // Determine priority styling
   const getPriorityColor = () => {
+    if (isFocusMode && task.priority === "high") {
+      return "font-bold text-destructive";
+    }
+
     switch (task.priority) {
       case "high":
         return "text-destructive";
